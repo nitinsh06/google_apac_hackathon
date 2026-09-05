@@ -9,6 +9,7 @@ import {
   Sparkles,
   ArrowRight,
   Filter,
+  MapPin,
 } from 'lucide-react';
 import type { JournalEntry, JournalCategory } from '../types.ts';
 import { deleteJournalEntry, togglePinEntry } from '../lib/firebase.ts';
@@ -52,7 +53,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
       const q = searchQuery.toLowerCase();
       const titleMatch = (entry.title || '').toLowerCase().includes(q);
       const turnsMatch = entry.turns.some((t) => (t.text || '').toLowerCase().includes(q));
-      return titleMatch || turnsMatch;
+      const locationMatch =
+        (entry.location?.name || '').toLowerCase().includes(q) ||
+        (entry.location?.address || '').toLowerCase().includes(q);
+      return titleMatch || turnsMatch || locationMatch;
     });
   }, [entries, selectedCategory, searchQuery]);
 
@@ -173,9 +177,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 <div>
                   {/* Top metadata */}
                   <div className="flex items-center justify-between gap-2 mb-2.5">
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded uppercase tracking-wide border border-slate-200">
-                      {entry.category || 'Personal'}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap max-w-[80%]">
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded uppercase tracking-wide border border-slate-200">
+                        {entry.category || 'Personal'}
+                      </span>
+
+                      {entry.location && (
+                        <span
+                          className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded border border-blue-200/60 flex items-center gap-1 max-w-[170px] truncate"
+                          title={`Pinned location: ${entry.location.name}${entry.location.address ? ` (${entry.location.address})` : ''}`}
+                        >
+                          <MapPin className="w-2.5 h-2.5 text-blue-600 shrink-0" />
+                          <span className="truncate">{entry.location.name}</span>
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-1.5">
                       <button

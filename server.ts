@@ -107,6 +107,13 @@ app.post('/api/gemini/reflect', async (req, res) => {
 Your role is to help the user unpack their thoughts, feelings, plans, and experiences with clarity, warmth, and depth.
 Format your responses using clean Markdown with clear headings, bullet points, and emphasis where appropriate.`;
 
+    const location = body.location && typeof body.location === 'object' ? body.location : null;
+    if (location && typeof location.name === 'string' && location.name.trim()) {
+      systemInstruction += `\n\nContextual Location: This journal reflection is pinned to "${location.name.trim()}"${
+        location.address ? ` (${location.address.trim()})` : ''
+      }. When appropriate or insightful, you may subtly acknowledge this physical setting, environment, or sense of place to enrich the user's reflection.`;
+    }
+
     if (mode === 'reflect') {
       systemInstruction += `
 Focus mode: DEEP REFLECTION.

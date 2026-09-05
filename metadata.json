@@ -1,6 +1,10 @@
 {
   "name": "Gemini Reflection Journal",
-  "description": "User-authenticated personal reflection and brainstorming journal powered by Gemini and Firestore.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "description": "User-authenticated personal reflection and brainstorming journal with location-aware entries, powered by Gemini and Firestore.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

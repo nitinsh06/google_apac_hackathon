@@ -11,6 +11,14 @@ export interface JournalTurn {
   modelUsed?: string;
 }
 
+export interface JournalLocation {
+  name: string;
+  address?: string;
+  lat: number;
+  lng: number;
+  placeId?: string;
+}
+
 export interface JournalEntry {
   id: string;
   userId: string;
@@ -22,6 +30,7 @@ export interface JournalEntry {
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   pinned?: boolean;
+  location?: JournalLocation | null;
 }
 
 export interface UserProfile {

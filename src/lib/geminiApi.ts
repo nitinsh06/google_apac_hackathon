@@ -4,6 +4,12 @@ export interface GenerateReflectionRequest {
   prompt: string;
   history?: Array<{ role: 'user' | 'model'; text: string }>;
   mode?: ReflectionMode;
+  location?: {
+    name: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
+  } | null;
 }
 
 export interface GenerateReflectionResponse {

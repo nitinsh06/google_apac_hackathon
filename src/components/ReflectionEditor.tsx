@@ -15,10 +15,12 @@ import {
   RotateCcw,
   Tag,
   Wand2,
+  MapPin,
 } from 'lucide-react';
-import type { JournalEntry, JournalTurn, ReflectionMode, JournalCategory } from '../types.ts';
+import type { JournalEntry, JournalTurn, ReflectionMode, JournalCategory, JournalLocation } from '../types.ts';
 import { requestGeminiReflection, requestSuggestedTitle } from '../lib/geminiApi.ts';
 import { saveJournalEntry } from '../lib/firebase.ts';
+import { LocationPickerModal } from './LocationPickerModal.tsx';
 
 interface ReflectionEditorProps {
   userId: string;
@@ -74,6 +76,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [copiedTurnId, setCopiedTurnId] = useState<string | null>(null);
   const [pendingUnsavedEntry, setPendingUnsavedEntry] = useState<JournalEntry | null>(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
   const turnsEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -90,6 +93,27 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 240)}px`;
     }
   }, [inputText]);
+
+  // Handle Location Change & Persistence
+  const handleSaveLocation = async (loc: JournalLocation | null) => {
+    const updated: JournalEntry = {
+      ...entry,
+      location: loc,
+      updatedAt: new Date().toISOString(),
+    };
+    onUpdateEntry(updated);
+    try {
+      setSaveStatus('saving');
+      await saveJournalEntry(userId, updated);
+      setSaveStatus('saved');
+      setSaveErrorMessage(null);
+    } catch (err: any) {
+      console.error('Error saving location to entry:', err);
+      setSaveStatus('error');
+      setSaveErrorMessage('Failed to save pinned location to Firestore.');
+      setPendingUnsavedEntry(updated);
+    }
+  };
 
   // Handle Title Change
   const handleTitleChange = async (newTitle: string) => {
@@ -206,6 +230,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
         prompt: trimmedInput,
         history: historyPayload,
         mode: currentMode,
+        location: entry.location || null,
       });
 
       const modelTurn: JournalTurn = {
@@ -295,8 +320,30 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
             </button>
           </div>
 
-          {/* Category Badges & Save Status */}
-          <div className="flex items-center gap-3">
+          {/* Category Badges, Location Pin & Save Status */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Location Pinning Chip */}
+            <button
+              id="reflection-location-pin-btn"
+              type="button"
+              onClick={() => setIsLocationModalOpen(true)}
+              className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                entry.location
+                  ? 'bg-blue-50/90 border-blue-200 text-blue-700 font-semibold hover:bg-blue-100/80 shadow-2xs'
+                  : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-600 font-medium hover:bg-slate-100'
+              }`}
+              title={
+                entry.location
+                  ? `Pinned Location: ${entry.location.name}${entry.location.address ? ` (${entry.location.address})` : ''} - Click to view or adjust map`
+                  : 'Pin a Google Maps location to this reflection'
+              }
+            >
+              <MapPin className={`w-3.5 h-3.5 ${entry.location ? 'text-blue-600 fill-blue-100' : 'text-slate-400'}`} />
+              <span className="max-w-[120px] sm:max-w-[150px] truncate">
+                {entry.location ? entry.location.name : 'Pin Location'}
+              </span>
+            </button>
+
             <div className="flex items-center gap-1.5 overflow-x-auto py-1">
               <Tag className="w-3.5 h-3.5 text-slate-400 hidden sm:inline" />
               {CATEGORIES.map((cat) => (
@@ -601,6 +648,14 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Location Picker Modal */}
+      <LocationPickerModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        currentLocation={entry.location}
+        onSaveLocation={handleSaveLocation}
+      />
     </div>
   );
 };

@@ -8,11 +8,11 @@ A secure, user-authenticated personal reflection and brainstorming journal appli
 
 | Threat Zone | Identified Risks | Countermeasures & Implementation Strategy |
 | :--- | :--- | :--- |
-| **1. Input Surfaces** | Prompt injection in journal entries, oversized text payloads leading to excessive latency or memory bloat, XSS via rendered AI responses. | Strict character limit (`maxLength: 8000`), HTML/Markdown entity encoding and sanitization via safe React Markdown rendering. |
+| **1. Input Surfaces** | Prompt injection in journal entries, oversized text payloads, malicious coordinates/geocoding injections, XSS via rendered AI responses. | Strict character limit (`maxLength: 8000`), HTML/Markdown entity encoding and sanitization via safe React Markdown rendering, coordinate range bounds checking. |
 | **2. Planning & Reasoning** | Prompt injection attempting to leak system instructions or bypass reflection guidelines. | Server-side prompt encapsulation with strict system instructions; untrusted user inputs wrapped strictly as reflection context. |
-| **3. Tool Execution & API** | Direct exposure of Gemini API key to client; SSRF or unauthorized proxy endpoints. | Full-stack architecture (`server.ts`) proxying all Gemini calls; `GEMINI_API_KEY` accessed exclusively server-side; API key never sent to the browser. |
+| **3. Tool Execution & API** | Direct exposure of Gemini API key or unrestricted Maps keys; SSRF or unauthorized proxy endpoints. | Full-stack architecture (`server.ts`) proxying all Gemini calls; `GEMINI_API_KEY` accessed exclusively server-side; client Maps key scoped by HTTP referrer; zero hardcoded credentials. |
 | **4. Memory & State** | Cross-user data leakage, unauthenticated document reads/writes, orphaned interactions, update gaps. | Cloud Firestore security rules enforcing owner-isolated paths (`request.auth.uid == userId`); `allow read, write: if request.auth != null && request.auth.uid == userId;` with strict schema validation; zero insecure defaults (`allow read, write: if true;` prohibited). |
-| **5. Inter-System Communication** | Token leakage, forged auth sessions, unverified Firebase identity tokens. | Google Sign-In via Firebase Auth (popup flow avoiding credential handling in app code); defensive payload serialization removing `undefined` properties. |
+| **5. Inter-System Communication** | Token leakage, forged auth sessions, unverified Firebase identity tokens, unmetered external map tile requests. | Google Sign-In via Firebase Auth (popup flow avoiding credential handling in app code); defensive payload serialization removing `undefined` properties; Google Maps Platform Code Assist usage attribution (`gmp_mcp_codeassist_v1_aistudio`). |
 
 ---
 
@@ -51,6 +51,26 @@ gcloud secrets add-iam-policy-binding GEMINI_API_KEY \
   --member="serviceAccount:YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor"
 ```
+
+### Google Maps Platform API Key Setup
+
+1. **Prototyping (Zero-Cost Maps Demo Key)**:
+   - For immediate local development without a credit card, obtain a free Maps Demo Key:
+   - [Maps Demo Key Onboarding](https://mapsplatform.google.com/maps-demo-key?utm_campaign=gmp_mcp_codeassist_v1_aistudio)
+   - Add to your local `.env`:
+     ```bash
+     VITE_GOOGLE_MAPS_API_KEY="YOUR_DEMO_KEY"
+     ```
+
+2. **Production Setup & Security Restrictions**:
+   - Create an API key in the [Google Cloud Console Credentials Page](https://console.cloud.google.com/google/maps-apis/credentials?utm_campaign=gmp_mcp_codeassist_v1_aistudio).
+   - **Application Restriction**: Apply **HTTP Referrers** restriction (e.g. `https://your-domain.run.app/*`).
+   - **API Restriction**: Restrict the key exclusively to:
+     - *Maps JavaScript API*
+     - *Places API (New)*
+     - *Geocoding API*
+   - Detailed guide: [Restricting an API Key](https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys?utm_campaign=gmp_mcp_codeassist_v1_aistudio).
+   - Terms of Service: [Google Maps Platform Terms](https://cloud.google.com/maps-platform/terms?utm_campaign=gmp_mcp_codeassist_v1_aistudio).
 
 ---
 
@@ -168,3 +188,16 @@ Every process and interaction a user can trigger is mapped to a verification tes
 ### Test Case 8: Sign Out
 - **Step 8.1**: Click the Sign Out icon in the top right.
 - **Step 8.2**: Confirm the session is terminated and the user is redirected back to the secure landing page.
+
+### Test Case 9: Location-Aware Entries, Draggable Maps, & Landmark Autocomplete Search
+- **Step 9.1**: In the active reflection editor, locate the top header card and click the `"Pin Location"` chip button.
+- **Step 9.2**: Verify the `LocationPickerModal` opens with an interactive Google Map preview, coordinate indicators, place presets, and the prominent `"Search Place or Landmark"` input bar.
+- **Step 9.3**: **Landmark Autocomplete Search**: Type a landmark name into the search bar (e.g., *"Eiffel Tower"*, *"Golden Gate Park"*, *"Kyoto"*, *"Central Park"*). Verify the live suggestions dropdown appears with categorized landmark entries and Google Places results.
+- **Step 9.4**: **Select Place**: Click any suggestion in the dropdown. Verify that the place name and address auto-populate into the details fields, the map smoothly pans to the destination, and the pin marker relocates to the coordinates.
+- **Step 9.5**: **Direct Coordinate Input**: Enter raw coordinates (e.g., `35.6762, 139.6503` or `37.7749, -122.4194`) into the search bar. Verify the `"Jump to Direct Coordinates"` option appears and navigates directly to the target location upon selection.
+- **Step 9.6**: **Free Map Panning & Dragging**: Click and drag anywhere on the map surface. Verify the map pans fluidly in all directions with inertia and without snapping back to previous positions.
+- **Step 9.7**: **Marker Dragging & Repositioning**: Click and drag the blue pin marker directly on the map. Verify the pin is draggable (`gmpDraggable`), and releasing the pin updates coordinates and the coordinate pill in real time.
+- **Step 9.8**: **Click-to-Pin**: Click any point on the map. Verify the pin immediately jumps to the clicked point and updates coordinates.
+- **Step 9.9**: **Geolocation with Consent**: Click `"Use My Current Location"`. Confirm the browser requests permission (`navigator.geolocation`). Upon granting, verify the pin and coordinates align to the user's physical position.
+- **Step 9.10**: **Persistence & AI Context**: Click `"Pin to Reflection"`. Verify the modal closes, the active location badge appears in the reflection editor header, and the location is saved to Firestore. Subsequent AI reflection prompts transmitted to Gemini 3.6 Flash are grounded in the physical setting.
+- **Step 9.11**: **History Filtering & Removal**: Navigate to `"Journal History"`. Verify entries with pinned locations display location badges. Search by location name. Open the reflection, click the location badge, and select `"Remove Pin"`. Verify the pin is removed and updated in Firestore.
