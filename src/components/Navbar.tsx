@@ -1,24 +1,41 @@
 import React from 'react';
-import { Sparkles, LogOut, ShieldCheck, Database } from 'lucide-react';
+import {
+  Sparkles,
+  LogOut,
+  ShieldCheck,
+  Database,
+  MapPin,
+  BookOpen,
+  PenLine,
+  LogIn,
+} from 'lucide-react';
 import type { UserProfile } from '../types.ts';
 
 interface NavbarProps {
   user: UserProfile | null;
+  isGuest?: boolean;
   onSignOut: () => void;
+  onSignIn?: () => void;
   onNewEntry: () => void;
-  activeView: 'editor' | 'history';
-  onSelectView: (view: 'editor' | 'history') => void;
+  activeView: 'editor' | 'history' | 'map';
+  onSelectView: (view: 'editor' | 'history' | 'map') => void;
   entryCount: number;
+  taggedCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   user,
+  isGuest = false,
   onSignOut,
+  onSignIn,
   onNewEntry,
   activeView,
   onSelectView,
   entryCount,
+  taggedCount = 0,
 }) => {
+  const showNavTabs = Boolean(user || isGuest);
+
   return (
     <header
       id="app-navbar"
@@ -31,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             id="brand-logo-button"
             role="button"
             tabIndex={0}
-            onClick={() => onSelectView('editor')}
+            onClick={() => onSelectView(showNavTabs ? 'editor' : 'map')}
             className="flex items-center space-x-3 cursor-pointer group select-none"
           >
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-xs group-hover:bg-blue-700 transition-colors">
@@ -47,22 +64,25 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Navigation tabs if authenticated */}
-          {user && (
+          {/* Navigation tabs if authenticated or in guest preview mode (Desktop) */}
+          {showNavTabs && (
             <nav className="hidden md:flex items-center space-x-1 bg-slate-100/80 p-1 rounded-lg border border-slate-200">
               <button
                 id="nav-tab-editor"
+                type="button"
                 onClick={() => onSelectView('editor')}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeView === 'editor'
                     ? 'bg-white text-blue-700 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
                 }`}
               >
-                Current Reflection
+                <PenLine className="w-3.5 h-3.5" />
+                <span>Current Reflection</span>
               </button>
               <button
                 id="nav-tab-history"
+                type="button"
                 onClick={() => onSelectView('history')}
                 className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeView === 'history'
@@ -70,10 +90,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
                 }`}
               >
+                <BookOpen className="w-3.5 h-3.5" />
                 <span>Journal History</span>
                 {entryCount > 0 && (
                   <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-slate-200 text-slate-700">
                     {entryCount}
+                  </span>
+                )}
+              </button>
+              <button
+                id="nav-tab-map"
+                type="button"
+                onClick={() => onSelectView('map')}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeView === 'map'
+                    ? 'bg-white text-blue-700 shadow-xs ring-1 ring-blue-500/20'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                <span>Places Map</span>
+                {taggedCount > 0 && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
+                    {taggedCount}
                   </span>
                 )}
               </button>
@@ -84,25 +123,45 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right side controls */}
         {user ? (
           <div className="flex items-center space-x-3 sm:space-x-4">
-            <button
-              id="nav-new-entry-btn"
-              onClick={onNewEntry}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-xs cursor-pointer"
-            >
-              <span>+ New Reflection</span>
-            </button>
+            {isGuest ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 hidden sm:inline-block">
+                  Guest Demo Mode
+                </span>
+                {onSignIn && (
+                  <button
+                    type="button"
+                    onClick={onSignIn}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <LogIn className="w-3 h-3" />
+                    <span>Sign In to Save</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <button
+                  id="nav-new-entry-btn"
+                  onClick={onNewEntry}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-xs cursor-pointer"
+                >
+                  <span>+ New Reflection</span>
+                </button>
 
-            {/* Firestore status indicator badge matching Design HTML */}
-            <div
-              id="firestore-status-badge"
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded uppercase tracking-wide border border-slate-200"
-              title="Cloud Firestore User-Isolated Storage active"
-            >
-              <Database className="w-3 h-3 text-slate-500" />
-              <span>Firestore Synced</span>
-            </div>
+                {/* Firestore status indicator badge */}
+                <div
+                  id="firestore-status-badge"
+                  className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded uppercase tracking-wide border border-slate-200"
+                  title="Cloud Firestore User-Isolated Storage active"
+                >
+                  <Database className="w-3 h-3 text-slate-500" />
+                  <span>Firestore Synced</span>
+                </div>
+              </>
+            )}
 
-            {/* User profile dropdown / info matching Design HTML */}
+            {/* User profile dropdown / info */}
             <div className="flex items-center space-x-3 pl-2 border-l border-slate-200">
               {user.photoURL ? (
                 <img
@@ -137,12 +196,72 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         ) : (
           <div className="flex items-center space-x-2">
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" /> Enterprise-Grade Privacy
-            </span>
+            <button
+              type="button"
+              onClick={() => onSelectView('map')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold border border-blue-200 transition-colors cursor-pointer"
+            >
+              <MapPin className="w-3.5 h-3.5 text-blue-600" />
+              <span>Explore Places Map</span>
+            </button>
           </div>
         )}
       </div>
+
+      {/* Mobile Navigation Strip */}
+      {showNavTabs && (
+        <div className="md:hidden border-t border-slate-200 bg-slate-50 px-3 py-1.5 flex items-center justify-around gap-1">
+          <button
+            id="mobile-nav-tab-editor"
+            type="button"
+            onClick={() => onSelectView('editor')}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+              activeView === 'editor'
+                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <PenLine className="w-3 h-3" />
+            <span>Reflection</span>
+          </button>
+          <button
+            id="mobile-nav-tab-history"
+            type="button"
+            onClick={() => onSelectView('history')}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+              activeView === 'history'
+                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <BookOpen className="w-3 h-3" />
+            <span>History</span>
+            {entryCount > 0 && (
+              <span className="text-[10px] font-bold px-1 rounded-full bg-slate-200 text-slate-700">
+                {entryCount}
+              </span>
+            )}
+          </button>
+          <button
+            id="mobile-nav-tab-map"
+            type="button"
+            onClick={() => onSelectView('map')}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+              activeView === 'map'
+                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <MapPin className="w-3 h-3 text-blue-600" />
+            <span>Map</span>
+            {taggedCount > 0 && (
+              <span className="text-[10px] font-bold px-1 rounded-full bg-blue-100 text-blue-700">
+                {taggedCount}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
     </header>
   );
 };

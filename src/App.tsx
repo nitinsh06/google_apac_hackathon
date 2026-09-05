@@ -1,27 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
-import type { JournalEntry, UserProfile } from './types.ts';
 import {
   subscribeAuthState,
+  subscribeUserJournalEntries,
   signInWithGoogle,
   logOut,
-  subscribeUserJournalEntries,
 } from './lib/firebase.ts';
+import type { JournalEntry, JournalLocation, UserProfile } from './types.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { LandingPage } from './components/LandingPage.tsx';
 import { ReflectionEditor } from './components/ReflectionEditor.tsx';
 import { HistoryView } from './components/HistoryView.tsx';
+import { PlacesMapView } from './components/PlacesMapView.tsx';
+import { INSPIRATION_SPOTS } from './components/ActualLeafletPlacesMap.tsx';
 import { AlertCircle } from 'lucide-react';
 
-export default function App() {
+export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isGuestMode, setIsGuestMode] = useState(false);
 
   // App State
   const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [activeView, setActiveView] = useState<'editor' | 'history'>('editor');
+  const [activeView, setActiveView] = useState<'editor' | 'history' | 'map'>('editor');
   const [currentEntry, setCurrentEntry] = useState<JournalEntry | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -33,6 +36,7 @@ export default function App() {
       setAuthError(null);
 
       if (user) {
+        setIsGuestMode(false);
         // Initialize new entry draft if none active
         setCurrentEntry((prev) => {
           if (prev && prev.userId === user.uid) return prev;
@@ -47,15 +51,17 @@ export default function App() {
           };
         });
       } else {
-        setCurrentEntry(null);
-        setEntries([]);
+        if (!isGuestMode) {
+          setCurrentEntry(null);
+          setEntries([]);
+        }
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isGuestMode]);
 
-  // 2. Subscribe to real-time user-isolated Firestore entries
+  // 2. Subscribe to real-time user-isolated Firestore entries when signed in
   useEffect(() => {
     if (!currentUser) return;
 
@@ -92,7 +98,6 @@ export default function App() {
       await signInWithGoogle();
     } catch (err: any) {
       console.error('Sign in failure:', err);
-      // Clean readable error for user
       if (err.code === 'auth/popup-closed-by-user') {
         setAuthError('Sign-in cancelled. Please click the button again to continue.');
       } else if (err.code === 'auth/popup-blocked') {
@@ -108,19 +113,33 @@ export default function App() {
   // Handle Sign Out
   const handleSignOut = async () => {
     try {
-      await logOut();
+      if (currentUser) {
+        await logOut();
+      }
+      setIsGuestMode(false);
       setActiveView('editor');
     } catch (err: any) {
       console.error('Sign out error:', err);
     }
   };
 
+  // Start Explore Demo / Guest Mode
+  const handleExploreDemo = () => {
+    setIsGuestMode(true);
+    const demoEntries = INSPIRATION_SPOTS.flatMap((spot) => spot.entries);
+    setEntries(demoEntries);
+    if (!currentEntry) {
+      setCurrentEntry(demoEntries[0] || null);
+    }
+    setActiveView('map');
+  };
+
   // Start a fresh new reflection
   const handleNewEntry = () => {
-    if (!currentUser) return;
+    const uid = currentUser ? currentUser.uid : 'guest-explorer';
     const freshEntry: JournalEntry = {
       id: `entry-${Date.now()}`,
-      userId: currentUser.uid,
+      userId: uid,
       title: 'Untitled Reflection',
       category: 'Personal',
       turns: [],
@@ -131,9 +150,26 @@ export default function App() {
     setActiveView('editor');
   };
 
-  // Select an entry from history
+  // Select an entry from history or map
   const handleSelectEntry = (entry: JournalEntry) => {
     setCurrentEntry(entry);
+    setActiveView('editor');
+  };
+
+  // Start a new reflection at a specific map location
+  const handleNewEntryAtLocation = (loc: JournalLocation) => {
+    const uid = currentUser ? currentUser.uid : 'guest-explorer';
+    const freshEntry: JournalEntry = {
+      id: `entry-${Date.now()}`,
+      userId: uid,
+      title: `Reflection at ${loc.name}`,
+      category: 'Personal',
+      turns: [],
+      location: loc,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setCurrentEntry(freshEntry);
     setActiveView('editor');
   };
 
@@ -163,6 +199,9 @@ export default function App() {
     );
   }
 
+  const effectiveUserId = currentUser ? currentUser.uid : 'guest-explorer';
+  const isDemo = !currentUser && isGuestMode;
+
   const userProfile: UserProfile | null = currentUser
     ? {
         uid: currentUser.uid,
@@ -170,18 +209,36 @@ export default function App() {
         email: currentUser.email,
         photoURL: currentUser.photoURL,
       }
+    : isGuestMode
+    ? {
+        uid: 'guest-explorer',
+        displayName: 'Guest Explorer',
+        email: 'preview@guest.demo',
+        photoURL: null,
+      }
     : null;
+
+  const taggedCount = entries.filter((e) => !!e.location).length;
+  const isAuthenticatedOrGuest = Boolean(currentUser || isGuestMode);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-500/20 selection:text-blue-800">
       {/* Top Navigation Bar */}
       <Navbar
         user={userProfile}
+        isGuest={isDemo}
         onSignOut={handleSignOut}
+        onSignIn={handleSignIn}
         onNewEntry={handleNewEntry}
         activeView={activeView}
-        onSelectView={setActiveView}
+        onSelectView={(view) => {
+          if (!currentUser && !isGuestMode) {
+            handleExploreDemo();
+          }
+          setActiveView(view);
+        }}
         entryCount={entries.length}
+        taggedCount={taggedCount}
       />
 
       {/* Sync Error Banner if any */}
@@ -195,10 +252,11 @@ export default function App() {
         </div>
       )}
 
-      {/* Conditional Rendering: Unauthenticated Landing Page vs. Authenticated Dashboard */}
-      {!currentUser ? (
+      {/* Conditional Rendering: Unauthenticated Landing Page vs. Authenticated/Guest Dashboard */}
+      {!isAuthenticatedOrGuest ? (
         <LandingPage
           onSignIn={handleSignIn}
+          onExploreDemo={handleExploreDemo}
           isLoading={isSigningIn}
           errorMessage={authError}
         />
@@ -206,7 +264,7 @@ export default function App() {
         <main className="flex-1 flex flex-col overflow-hidden">
           {activeView === 'editor' && currentEntry && (
             <ReflectionEditor
-              userId={currentUser.uid}
+              userId={effectiveUserId}
               entry={currentEntry}
               onUpdateEntry={handleUpdateEntry}
             />
@@ -214,9 +272,19 @@ export default function App() {
 
           {activeView === 'history' && (
             <HistoryView
-              userId={currentUser.uid}
+              userId={effectiveUserId}
               entries={entries}
               onSelectEntry={handleSelectEntry}
+              onNewEntry={handleNewEntry}
+            />
+          )}
+
+          {activeView === 'map' && (
+            <PlacesMapView
+              userId={effectiveUserId}
+              entries={entries}
+              onSelectEntry={handleSelectEntry}
+              onNewEntryAtLocation={handleNewEntryAtLocation}
               onNewEntry={handleNewEntry}
             />
           )}
@@ -225,3 +293,5 @@ export default function App() {
     </div>
   );
 }
+
+export default App;

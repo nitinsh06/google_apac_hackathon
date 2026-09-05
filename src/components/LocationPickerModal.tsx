@@ -27,6 +27,7 @@ import {
   Compass,
 } from 'lucide-react';
 import type { JournalLocation } from '../types.ts';
+import { ActualLeafletPickerMap } from './ActualLeafletPickerMap.tsx';
 
 // Source: Google Maps Platform Code Assist
 // Grounded via @vis.gl/react-google-maps and Google Maps Platform Code Assist
@@ -879,31 +880,11 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             onPositionChange={handlePositionChange}
           />
         ) : (
-          <div className="h-full w-full flex flex-col items-center justify-center p-6 text-center bg-slate-50 text-slate-600">
-            <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 mb-2.5 shadow-xs">
-              <Navigation className="w-5 h-5" />
-            </div>
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-              Interactive Google Map Preview
-            </h4>
-            <p className="text-xs text-slate-500 max-w-sm mt-1 mb-3 leading-relaxed">
-              Pin is positioned at coordinates{' '}
-              <code className="px-1.5 py-0.5 bg-slate-200 rounded font-mono text-[11px] text-slate-800 font-semibold">
-                {coords.lat}, {coords.lng}
-              </code>
-              . You can search landmarks or presets above. To load live vector tiles, connect your Google Maps API key or Maps Demo Key in{' '}
-              <code className="text-blue-700 font-mono">.env</code>.
-            </p>
-            <a
-              href="https://mapsplatform.google.com/maps-demo-key?utm_campaign=gmp_mcp_codeassist_v1_aistudio"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold shadow-xs transition-colors"
-            >
-              <span>Get Zero-Cost Maps Demo Key</span>
-              <ExternalLink className="w-3 h-3 text-slate-400" />
-            </a>
-          </div>
+          <ActualLeafletPickerMap
+            position={coords}
+            placeName={name}
+            onPositionChange={(newPos) => handlePositionChange(newPos, true)}
+          />
         )}
 
         {/* Floating Coordinate & Instruction Pill on top of map */}

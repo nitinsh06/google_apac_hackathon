@@ -1,81 +1,81 @@
 import React from 'react';
-import { Sparkles, Shield, Database, Lock, ArrowRight, Brain, BookOpen } from 'lucide-react';
+import { Sparkles, Shield, Database, Lock, ArrowRight, Brain, BookOpen, MapPin } from 'lucide-react';
 
 interface LandingPageProps {
   onSignIn: () => void;
+  onExploreDemo?: () => void;
   isLoading: boolean;
   errorMessage: string | null;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onSignIn,
+  onExploreDemo,
   isLoading,
   errorMessage,
 }) => {
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-50 text-slate-900 flex flex-col justify-between">
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-20 flex-1 flex flex-col items-center justify-center text-center">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16 flex-1 flex flex-col items-center justify-center text-center">
         {/* Eyebrow badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold mb-8 shadow-xs">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold mb-6 shadow-xs">
           <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-          <span>Intelligent Journaling with Gemini 3.6 Flash & Cloud Firestore</span>
+          <span>Intelligent Journaling with Gemini 3.6 Flash & Interactive Life Map</span>
         </div>
 
         {/* Hero Title */}
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 max-w-3xl leading-[1.15]">
-          A sanctuary for your thoughts, reflections, and breakthrough ideas.
+          A sanctuary for your thoughts, reflections, and places visited.
         </h1>
 
-        <p className="mt-6 text-base sm:text-lg text-slate-600 max-w-2xl leading-relaxed">
-          Engage in multi-turn introspective dialogue, synthesize complex challenges, and
-          brainstorm strategic impact areas. Strictly isolated and securely persisted in your personal
-          Cloud Firestore vault.
+        <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-2xl leading-relaxed">
+          Engage in multi-turn introspective dialogue, synthesize complex challenges, and pin
+          reflections to interactive map coordinates. Strictly isolated and securely persisted in
+          your personal Cloud Firestore vault.
         </p>
 
         {/* Authentication Action Card */}
         <div
           id="auth-cta-card"
-          className="mt-10 p-6 sm:p-8 bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-sm"
+          className="mt-8 p-6 sm:p-8 bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-sm"
         >
           <h2 className="text-lg font-bold text-slate-800 mb-2">
             Sign In to Your Private Vault
           </h2>
-          <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+          <p className="text-xs text-slate-500 mb-5 leading-relaxed">
             Federated authentication via Google. We never store or handle passwords, and your
             reflections remain strictly restricted to your authenticated user identity.
           </p>
 
           {errorMessage && (
             <div
-              id="auth-error-banner"
-              className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs text-left font-medium"
+              id="auth-error-message"
+              className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl text-left"
             >
               {errorMessage}
             </div>
           )}
 
           <button
-            id="google-signin-button"
+            id="google-signin-btn"
+            type="button"
             onClick={onSignIn}
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-semibold text-sm border border-slate-300 shadow-xs hover:shadow-sm hover:border-slate-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer group"
+            className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-all shadow-sm hover:shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
           >
             {isLoading ? (
-              <div className="flex items-center gap-2 text-slate-700">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span>Authenticating with Google...</span>
-              </div>
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3h3.88c2.27-2.09 3.665-5.17 3.665-9.09z"
                   />
                   <path
                     fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.36 24 12 24z"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.15-6.72-4.98H1.25v3.15C3.26 21.36 7.36 24 12 24z"
                   />
                   <path
                     fill="#FBBC05"
@@ -92,6 +92,29 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             )}
           </button>
 
+          {onExploreDemo && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-white px-2 text-slate-400 font-medium">or preview without sign-in</span>
+                </div>
+              </div>
+
+              <button
+                id="explore-demo-btn"
+                type="button"
+                onClick={onExploreDemo}
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs border border-blue-200 shadow-2xs hover:border-blue-300 transition-all cursor-pointer"
+              >
+                <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                <span>Explore Live Places Map & Demo Journal</span>
+              </button>
+            </>
+          )}
+
           <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-slate-500 font-medium">
             <span className="flex items-center gap-1">
               <Shield className="w-3.5 h-3.5 text-blue-600" /> Firebase Auth
@@ -104,7 +127,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         {/* Feature Highlights Grid */}
-        <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl text-left">
+        <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl text-left">
           <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-xs">
             <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center mb-3.5 text-blue-600">
               <Brain className="w-4 h-4" />
@@ -118,23 +141,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-xs">
             <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-3.5 text-emerald-600">
-              <Database className="w-4 h-4" />
+              <MapPin className="w-4 h-4" />
             </div>
-            <h3 className="text-sm font-bold text-slate-800 mb-1.5">Firestore Isolation</h3>
+            <h3 className="text-sm font-bold text-slate-800 mb-1.5">Interactive Life Map</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              All journal entries and AI dialogues are stored under your unique user ID with strict
-              owner-bound security rules.
+              Drop pin points on the map, group memories by landmark, and explore life reflections
+              geographically.
             </p>
           </div>
 
           <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-xs">
             <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-3.5 text-indigo-600">
-              <BookOpen className="w-4 h-4" />
+              <Database className="w-4 h-4" />
             </div>
-            <h3 className="text-sm font-bold text-slate-800 mb-1.5">History & Summaries</h3>
+            <h3 className="text-sm font-bold text-slate-800 mb-1.5">Cloud Firestore Vault</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Revisit past sessions, search through your reflections, and track strategic growth
-              across categories over time.
+              All journal entries, dialogues, and location coordinates are stored under your unique
+              user ID with strict owner-bound rules.
             </p>
           </div>
         </div>
