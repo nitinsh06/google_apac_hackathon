@@ -8,6 +8,7 @@ import {
   APILoadingStatus,
   useMap,
   useMapsLibrary,
+  useAdvancedMarkerRef,
 } from '@vis.gl/react-google-maps';
 import {
   MapPin,
@@ -23,6 +24,7 @@ import {
   Trees,
   Sparkles,
   Loader2,
+  Compass,
 } from 'lucide-react';
 import type { JournalLocation } from '../types.ts';
 
@@ -103,6 +105,32 @@ const POPULAR_PRESETS = [
   { name: 'Paris, France', address: 'Paris, Île-de-France, France', lat: 48.8566, lng: 2.3522 },
   { name: 'Kyoto, Japan', address: 'Kyoto, Japan', lat: 35.0116, lng: 135.7681 },
 ];
+
+/**
+ * Helper to match coordinates to closest catalog landmark if within 2 km
+ */
+function findNearbyLandmark(lat: number, lng: number): LandmarkItem | null {
+  let closest: LandmarkItem | null = null;
+  let minDistanceKm = 2.0;
+
+  for (const item of POPULAR_LANDMARKS) {
+    const dLat = ((item.lat - lat) * Math.PI) / 180;
+    const dLng = ((item.lng - lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat * Math.PI) / 180) *
+        Math.cos((item.lat * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distanceKm = 6371 * c;
+    if (distanceKm < minDistanceKm) {
+      minDistanceKm = distanceKm;
+      closest = item;
+    }
+  }
+  return closest;
+}
 
 /**
  * Camera Controller that smoothly pans the map when position updates programmatically
@@ -463,10 +491,60 @@ const LandmarkSearchBox: React.FC<{
  */
 const InteractiveMapContent: React.FC<{
   position: { lat: number; lng: number };
-  onPositionChange: (pos: { lat: number; lng: number }) => void;
+  onPositionChange: (pos: { lat: number; lng: number }, shouldReverseGeocode?: boolean) => void;
   placeName?: string;
 }> = ({ position, onPositionChange, placeName }) => {
   const status = useApiLoadingStatus();
+  const [markerRef, marker] = useAdvancedMarkerRef();
+
+  // Helper to extract coordinates safely from event or marker instance
+  const extractCoords = useCallback(
+    (e?: any): { lat: number; lng: number } | null => {
+      if (e?.latLng) {
+        const lat = typeof e.latLng.lat === 'function' ? e.latLng.lat() : Number(e.latLng.lat);
+        const lng = typeof e.latLng.lng === 'function' ? e.latLng.lng() : Number(e.latLng.lng);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) };
+        }
+      }
+      if (marker && marker.position) {
+        const pos: any = marker.position;
+        const lat = typeof pos.lat === 'function' ? pos.lat() : Number(pos.lat);
+        const lng = typeof pos.lng === 'function' ? pos.lng() : Number(pos.lng);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) };
+        }
+      }
+      return null;
+    },
+    [marker]
+  );
+
+  // Attach native Google Maps event listeners directly to marker for 100% reliable drag tracking
+  useEffect(() => {
+    if (!marker) return;
+
+    const dragListener = marker.addListener('drag', (e: any) => {
+      const coords = extractCoords(e);
+      if (coords) {
+        onPositionChange(coords, false);
+      }
+    });
+
+    const dragEndListener = marker.addListener('dragend', (e: any) => {
+      const coords = extractCoords(e);
+      if (coords) {
+        onPositionChange(coords, true);
+      }
+    });
+
+    return () => {
+      if (window.google?.maps?.event) {
+        google.maps.event.removeListener(dragListener);
+        google.maps.event.removeListener(dragEndListener);
+      }
+    };
+  }, [marker, extractCoords, onPositionChange]);
 
   if (status === APILoadingStatus.FAILED || status === APILoadingStatus.AUTH_FAILURE) {
     return (
@@ -491,7 +569,7 @@ const InteractiveMapContent: React.FC<{
           onPositionChange({
             lat: Number(e.detail.latLng.lat.toFixed(6)),
             lng: Number(e.detail.latLng.lng.toFixed(6)),
-          });
+          }, true);
         }
       }}
       className="w-full h-full cursor-grab active:cursor-grabbing"
@@ -500,17 +578,20 @@ const InteractiveMapContent: React.FC<{
     >
       <MapCameraController targetPosition={position} />
       <AdvancedMarker
+        ref={markerRef}
         position={position}
         draggable={true}
         title={placeName || 'Pinned Reflection Location (Drag to reposition)'}
+        onDrag={(e) => {
+          const coords = extractCoords(e);
+          if (coords) {
+            onPositionChange(coords, false);
+          }
+        }}
         onDragEnd={(e) => {
-          if (e.latLng) {
-            const latVal = typeof e.latLng.lat === 'function' ? e.latLng.lat() : Number(e.latLng.lat);
-            const lngVal = typeof e.latLng.lng === 'function' ? e.latLng.lng() : Number(e.latLng.lng);
-            onPositionChange({
-              lat: Number(latVal.toFixed(6)),
-              lng: Number(lngVal.toFixed(6)),
-            });
+          const coords = extractCoords(e);
+          if (coords) {
+            onPositionChange(coords, true);
           }
         }}
       >
@@ -531,6 +612,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   const [coords, setCoords] = useState<{ lat: number; lng: number }>(DEFAULT_CENTER);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Retrieve client API key from environment
   const mapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || '';
@@ -548,8 +630,102 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         setCoords(DEFAULT_CENTER);
       }
       setGeoError(null);
+      setIsGeocoding(false);
     }
   }, [isOpen, currentLocation]);
+
+  // Position change handler with live coordinate updates and reverse geocoding on drag release / map click
+  const handlePositionChange = useCallback(
+    async (newPos: { lat: number; lng: number }, shouldReverseGeocode = false) => {
+      setCoords(newPos);
+      setGeoError(null);
+
+      // Format clean directional coordinates string
+      const latDir = newPos.lat >= 0 ? 'N' : 'S';
+      const lngDir = newPos.lng >= 0 ? 'E' : 'W';
+      const formattedCoords = `${Math.abs(newPos.lat).toFixed(4)}° ${latDir}, ${Math.abs(newPos.lng).toFixed(4)}° ${lngDir}`;
+
+      if (shouldReverseGeocode) {
+        setIsGeocoding(true);
+        try {
+          let resolved: { name?: string; address?: string } | null = null;
+
+          // 1. Google Maps Geocoder API lookup
+          if (typeof window !== 'undefined' && window.google?.maps?.Geocoder) {
+            resolved = await new Promise((resolve) => {
+              try {
+                const geocoder = new window.google.maps.Geocoder();
+                geocoder.geocode({ location: newPos }, (results, status) => {
+                  if (status === 'OK' && results && results[0]) {
+                    const top = results[0];
+                    let foundName = '';
+                    const poi = top.address_components?.find((c) =>
+                      c.types.includes('point_of_interest') || c.types.includes('establishment')
+                    );
+                    const sublocality = top.address_components?.find((c) =>
+                      c.types.includes('sublocality') || c.types.includes('neighborhood')
+                    );
+                    const locality = top.address_components?.find((c) => c.types.includes('locality'));
+                    const route = top.address_components?.find((c) => c.types.includes('route'));
+
+                    if (poi) {
+                      foundName = poi.long_name;
+                    } else if (sublocality && locality) {
+                      foundName = `${sublocality.long_name}, ${locality.long_name}`;
+                    } else if (route && locality) {
+                      foundName = `${route.long_name}, ${locality.long_name}`;
+                    } else if (locality) {
+                      foundName = locality.long_name;
+                    } else {
+                      foundName = top.formatted_address.split(',')[0];
+                    }
+
+                    resolve({
+                      name: foundName.trim() || 'Pinned Location',
+                      address: top.formatted_address,
+                    });
+                  } else {
+                    resolve(null);
+                  }
+                });
+              } catch {
+                resolve(null);
+              }
+            });
+          }
+
+          // 2. Catalog fallback (within 2km of famous landmarks)
+          if (!resolved) {
+            const nearby = findNearbyLandmark(newPos.lat, newPos.lng);
+            if (nearby) {
+              resolved = { name: nearby.name, address: nearby.address };
+            }
+          }
+
+          // 3. Update form fields
+          if (resolved) {
+            if (resolved.name) setName(resolved.name);
+            if (resolved.address) setAddress(resolved.address);
+          } else {
+            setName(`Pinned Location (${newPos.lat.toFixed(4)}, ${newPos.lng.toFixed(4)})`);
+            setAddress(formattedCoords);
+          }
+        } catch (err) {
+          console.warn('Reverse geocoding error:', err);
+          setName(`Pinned Location (${newPos.lat.toFixed(4)}, ${newPos.lng.toFixed(4)})`);
+          setAddress(formattedCoords);
+        } finally {
+          setIsGeocoding(false);
+        }
+      } else {
+        // Live drag update without overwriting custom place name
+        if (!address || address.includes('° N') || address.includes('° S') || address.includes('Pinned Location')) {
+          setAddress(formattedCoords);
+        }
+      }
+    },
+    [address]
+  );
 
   // Request browser geolocation with explicit user consent
   const handleUseCurrentLocation = useCallback(() => {
@@ -565,11 +741,9 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
       (pos) => {
         const lat = Number(pos.coords.latitude.toFixed(6));
         const lng = Number(pos.coords.longitude.toFixed(6));
-        setCoords({ lat, lng });
-        if (!name) {
-          setName('My Current Location');
-        }
-        setAddress(`${lat}° N, ${lng}° E`);
+        const newCoords = { lat, lng };
+        setCoords(newCoords);
+        handlePositionChange(newCoords, true);
         setGeoLoading(false);
       },
       (err) => {
@@ -583,7 +757,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
-  }, [name]);
+  }, [handlePositionChange]);
 
   // Handle Preset selection
   const handleSelectPreset = (preset: typeof POPULAR_PRESETS[0]) => {
@@ -702,12 +876,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
           <InteractiveMapContent
             position={coords}
             placeName={name}
-            onPositionChange={(newPos) => {
-              setCoords(newPos);
-              if (!address) {
-                setAddress(`${newPos.lat}° N, ${newPos.lng}° E`);
-              }
-            }}
+            onPositionChange={handlePositionChange}
           />
         ) : (
           <div className="h-full w-full flex flex-col items-center justify-center p-6 text-center bg-slate-50 text-slate-600">
@@ -738,8 +907,87 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         )}
 
         {/* Floating Coordinate & Instruction Pill on top of map */}
-        <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-mono font-semibold text-slate-700 shadow-xs pointer-events-none">
-          Lat: {coords.lat.toFixed(4)}, Lng: {coords.lng.toFixed(4)}
+        <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-mono font-semibold text-slate-700 shadow-xs pointer-events-none flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+          <span>Lat: {coords.lat.toFixed(6)}, Lng: {coords.lng.toFixed(6)}</span>
+        </div>
+      </div>
+
+      {/* Dedicated Geographic Coordinates Fields */}
+      <div className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+            <Compass className="w-3.5 h-3.5 text-blue-600" />
+            <span>Pin Coordinates</span>
+            {isGeocoding && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                <span>Resolving address...</span>
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] font-mono font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+            {coords.lat >= 0 ? `${coords.lat.toFixed(4)}° N` : `${Math.abs(coords.lat).toFixed(4)}° S`},{' '}
+            {coords.lng >= 0 ? `${coords.lng.toFixed(4)}° E` : `${Math.abs(coords.lng).toFixed(4)}° W`}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label
+              htmlFor="latitude-input"
+              className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center justify-between"
+            >
+              <span>Latitude</span>
+              <span className="text-[10px] text-slate-400 font-mono">-90° to 90°</span>
+            </label>
+            <input
+              id="latitude-input"
+              type="number"
+              step="0.000001"
+              min="-90"
+              max="90"
+              value={coords.lat}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val)) {
+                  const clamped = Math.max(-90, Math.min(90, val));
+                  const updated = { ...coords, lat: clamped };
+                  setCoords(updated);
+                }
+              }}
+              onBlur={() => handlePositionChange(coords, true)}
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs font-medium"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="longitude-input"
+              className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center justify-between"
+            >
+              <span>Longitude</span>
+              <span className="text-[10px] text-slate-400 font-mono">-180° to 180°</span>
+            </label>
+            <input
+              id="longitude-input"
+              type="number"
+              step="0.000001"
+              min="-180"
+              max="180"
+              value={coords.lng}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val)) {
+                  const clamped = Math.max(-180, Math.min(180, val));
+                  const updated = { ...coords, lng: clamped };
+                  setCoords(updated);
+                }
+              }}
+              onBlur={() => handlePositionChange(coords, true)}
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs font-medium"
+            />
+          </div>
         </div>
       </div>
 
@@ -748,9 +996,12 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         <div>
           <label
             htmlFor="location-name-input"
-            className="block text-xs font-semibold text-slate-700 mb-1"
+            className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between"
           >
-            Place / Landmark Name <span className="text-blue-600">*</span>
+            <span>
+              Place / Landmark Name <span className="text-blue-600">*</span>
+            </span>
+            {isGeocoding && <span className="text-[10px] text-blue-500 font-normal">Updating...</span>}
           </label>
           <div className="relative">
             <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
@@ -768,9 +1019,12 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         <div>
           <label
             htmlFor="location-address-input"
-            className="block text-xs font-semibold text-slate-700 mb-1"
+            className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between"
           >
-            Address / Contextual Note <span className="text-slate-400 font-normal">(Optional)</span>
+            <span>
+              Address / Contextual Note <span className="text-slate-400 font-normal">(Optional)</span>
+            </span>
+            {isGeocoding && <span className="text-[10px] text-blue-500 font-normal">Resolving...</span>}
           </label>
           <input
             id="location-address-input"
