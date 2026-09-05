@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Prohibit all access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // User-isolated document tree: only the authenticated user can access their documents and subcollections
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Explicit path for interactions / reflections
+    match /users/{userId}/interactions/{interactionId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/reflections/{reflectionId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
