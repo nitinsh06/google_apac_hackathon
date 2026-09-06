@@ -23,5 +23,11 @@ service cloud.firestore {
     match /users/{userId}/reflections/{reflectionId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Integration settings, including webhook destinations. Owner-only: a
+    // webhook URL is a capability to post into someone's channel.
+    match /users/{userId}/preferences/{preferenceId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }

@@ -12,7 +12,8 @@ import { LandingPage } from './components/LandingPage.tsx';
 import { ReflectionEditor } from './components/ReflectionEditor.tsx';
 import { HistoryView } from './components/HistoryView.tsx';
 import { PlacesMapView } from './components/PlacesMapView.tsx';
-import { INSPIRATION_SPOTS } from './components/ActualLeafletPlacesMap.tsx';
+import { ProfileView } from './components/ProfileView.tsx';
+import { SAMPLE_ENTRIES } from './lib/samplePlaces.ts';
 import { AlertCircle } from 'lucide-react';
 
 export function App() {
@@ -24,7 +25,7 @@ export function App() {
 
   // App State
   const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [activeView, setActiveView] = useState<'editor' | 'history' | 'map'>('editor');
+  const [activeView, setActiveView] = useState<'editor' | 'history' | 'map' | 'profile'>('editor');
   const [currentEntry, setCurrentEntry] = useState<JournalEntry | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -126,7 +127,7 @@ export function App() {
   // Start Explore Demo / Guest Mode
   const handleExploreDemo = () => {
     setIsGuestMode(true);
-    const demoEntries = INSPIRATION_SPOTS.flatMap((spot) => spot.entries);
+    const demoEntries = SAMPLE_ENTRIES;
     setEntries(demoEntries);
     if (!currentEntry) {
       setCurrentEntry(demoEntries[0] || null);
@@ -208,6 +209,9 @@ export function App() {
         displayName: currentUser.displayName,
         email: currentUser.email,
         photoURL: currentUser.photoURL,
+        createdAt: currentUser.metadata.creationTime
+          ? new Date(currentUser.metadata.creationTime).toISOString()
+          : null,
       }
     : isGuestMode
     ? {
@@ -227,7 +231,6 @@ export function App() {
       <Navbar
         user={userProfile}
         isGuest={isDemo}
-        onSignOut={handleSignOut}
         onSignIn={handleSignIn}
         onNewEntry={handleNewEntry}
         activeView={activeView}
@@ -279,9 +282,20 @@ export function App() {
             />
           )}
 
+          {activeView === 'profile' && userProfile && (
+            <ProfileView
+              user={userProfile}
+              isGuest={isDemo}
+              entries={entries}
+              onSignOut={handleSignOut}
+              onSignIn={handleSignIn}
+            />
+          )}
+
           {activeView === 'map' && (
             <PlacesMapView
               userId={effectiveUserId}
+              isGuest={isDemo}
               entries={entries}
               onSelectEntry={handleSelectEntry}
               onNewEntryAtLocation={handleNewEntryAtLocation}

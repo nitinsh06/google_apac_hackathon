@@ -38,4 +38,6 @@ export interface UserProfile {
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
+  /** ISO timestamp of account creation, from Firebase Auth metadata. */
+  createdAt?: string | null;
 }

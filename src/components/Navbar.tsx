@@ -1,24 +1,24 @@
 import React from 'react';
 import {
   Sparkles,
-  LogOut,
-  ShieldCheck,
   Database,
   MapPin,
   BookOpen,
   PenLine,
   LogIn,
+  UserRound,
 } from 'lucide-react';
 import type { UserProfile } from '../types.ts';
+
+type NavView = 'editor' | 'history' | 'map' | 'profile';
 
 interface NavbarProps {
   user: UserProfile | null;
   isGuest?: boolean;
-  onSignOut: () => void;
   onSignIn?: () => void;
   onNewEntry: () => void;
-  activeView: 'editor' | 'history' | 'map';
-  onSelectView: (view: 'editor' | 'history' | 'map') => void;
+  activeView: NavView;
+  onSelectView: (view: NavView) => void;
   entryCount: number;
   taggedCount?: number;
 }
@@ -26,7 +26,6 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   user,
   isGuest = false,
-  onSignOut,
   onSignIn,
   onNewEntry,
   activeView,
@@ -161,36 +160,48 @@ export const Navbar: React.FC<NavbarProps> = ({
               </>
             )}
 
-            {/* User profile dropdown / info */}
-            <div className="flex items-center space-x-3 pl-2 border-l border-slate-200">
-              {user.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt={user.displayName || 'User'}
-                  className="w-9 h-9 rounded-full border border-slate-300 object-cover shadow-xs"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-xs font-bold text-slate-600">
-                  {(user.displayName || user.email || 'U').slice(0, 2).toUpperCase()}
-                </div>
-              )}
-              <div className="hidden xl:block text-left">
-                <p className="text-xs font-semibold text-slate-800 leading-tight">
-                  {user.displayName || 'User'}
-                </p>
-                <p className="text-[11px] text-slate-500 leading-tight truncate max-w-[140px]">
-                  {user.email}
-                </p>
-              </div>
-
+            {/* Avatar opens the profile, where the account and sign-out live */}
+            <div className="pl-2 border-l border-slate-200">
               <button
-                id="sign-out-btn"
-                onClick={onSignOut}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                title="Sign Out"
+                id="nav-profile-btn"
+                type="button"
+                onClick={() => onSelectView('profile')}
+                aria-current={activeView === 'profile' ? 'page' : undefined}
+                title="Profile and account settings"
+                className={`flex items-center gap-3 rounded-lg p-1 pr-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                  activeView === 'profile' ? 'bg-blue-50' : 'hover:bg-slate-100'
+                }`}
               >
-                <LogOut className="w-4 h-4" />
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt=""
+                    className={`w-9 h-9 rounded-full object-cover shadow-xs ${
+                      activeView === 'profile'
+                        ? 'ring-2 ring-blue-500 ring-offset-1'
+                        : 'border border-slate-300'
+                    }`}
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span
+                    className={`w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 ${
+                      activeView === 'profile'
+                        ? 'ring-2 ring-blue-500 ring-offset-1'
+                        : 'border border-slate-300'
+                    }`}
+                  >
+                    {(user.displayName || user.email || 'U').slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+                <span className="hidden xl:block text-left">
+                  <span className="block text-xs font-semibold text-slate-800 leading-tight">
+                    {user.displayName || 'User'}
+                  </span>
+                  <span className="block text-[11px] text-slate-600 leading-tight truncate max-w-[140px]">
+                    {user.email}
+                  </span>
+                </span>
               </button>
             </div>
           </div>
@@ -259,6 +270,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {taggedCount}
               </span>
             )}
+          </button>
+          <button
+            id="mobile-nav-tab-profile"
+            type="button"
+            onClick={() => onSelectView('profile')}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+              activeView === 'profile'
+                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <UserRound className="w-3 h-3" />
+            <span>Profile</span>
           </button>
         </div>
       )}

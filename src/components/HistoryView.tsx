@@ -12,7 +12,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import type { JournalEntry, JournalCategory } from '../types.ts';
-import { deleteJournalEntry, togglePinEntry } from '../lib/firebase.ts';
+import { deleteJournalEntryWithEvent, togglePinEntry } from '../lib/firebase.ts';
 
 interface HistoryViewProps {
   userId: string;
@@ -62,8 +62,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
   const handleDelete = async (entryId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const entry = entries.find((candidate) => candidate.id === entryId);
+    if (!entry) return;
     try {
-      await deleteJournalEntry(userId, entryId);
+      await deleteJournalEntryWithEvent(userId, entry);
       setEntryToDelete(null);
     } catch (err) {
       console.error('Failed to delete reflection entry:', err);

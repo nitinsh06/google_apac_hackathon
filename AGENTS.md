@@ -77,3 +77,38 @@
      - Provide graceful fallbacks (e.g. manual place/city search) if location permissions are denied.
      - Respect data retention limits: geospatial coordinates (lat/lng) must not be cached for more than 30 consecutive calendar days.
      - Adhere to the Google Maps Platform Terms of Service: `https://cloud.google.com/maps-platform/terms?utm_campaign=gmp_mcp_codeassist_v1_aistudio`.
+
+## 9. External Notification API Directive
+* **Objective**: Govern how outbound notifications (Slack, Discord, email, and generic HTTP endpoints) are configured, authenticated, filtered, and shaped, so that every new channel inherits the same guarantees instead of re-deriving them.
+* **Scope**: Any feature that transmits journal content to a system outside this application.
+
+### 9.1 Credential Custody
+* **User-Scoped Secrets**: A webhook URL is a bearer credential — possession alone grants the ability to post into someone's channel. Store destinations only under the owning user's document tree (`users/{uid}/preferences/integrations`) and protect them with owner-bound rules. Never place them in a shared or global collection.
+* **Provider Secrets Are Server-Only**: API keys for mail or messaging providers (e.g. `RESEND_API_KEY`) must be read from `process.env` on the server. Never prefix them with `VITE_`, never return them in an API response, and never let them reach the bundle.
+* **Never Echo Credentials**: Mask destinations in all UI (`host/path/…`), logs, and error messages. A delivery failure must report status and reason, never the destination secret.
+* **Recipients Are Derived, Not Supplied**: For email and any other identity-addressed channel, take the recipient from the verified ID token, never from the request body. An endpoint that accepts a caller-supplied recipient is a mail relay.
+
+### 9.2 Dispatch Boundary
+* **Server-Side Delivery Only**: The browser names an *event*; the server resolves *where to send it* by reading the caller's own stored configuration. A client that supplies its own destination turns the service into an open proxy.
+* **Authenticate Every Dispatch**: Verify the Firebase ID token on every notification request before any outbound call. Reject `alg:none`, unknown key ids, wrong `aud`/`iss`, and expired tokens.
+* **Constrain the Destination**: Pin known providers to their own hostnames and path shapes. For unrestricted destinations, refuse non-HTTP schemes outright, and resolve the hostname before connecting so that a public-looking name cannot reach loopback, link-local, or RFC1918 addresses. Where a private target is deliberately permitted for local development, surface it as a persistent, explicit warning rather than a silent allowance.
+* **Contain the Blast Radius**: Apply a per-user rate limit, a request timeout, `redirect: 'manual'`, and never forward an upstream response body back to the browser.
+* **Fire and Forget**: A failed notification must never fail the user's underlying write. Deliver asynchronously and record the outcome; do not surface it as a save error.
+
+### 9.3 Payload Schemas
+* **One Shape Per Provider**: Each channel declares its own payload builder in a shared, dependency-free module importable by both client and server. Discord receives `embeds[]`, Slack receives `blocks[]` with a `text` fallback, email receives escaped HTML plus a plain-text alternative, and generic endpoints receive a documented, versioned JSON envelope.
+* **Minimum Necessary Content**: Send a summary — identifier, title, category, excerpt, counts, and place — never the full dialogue transcript. Journal content is the most sensitive data in this system; transmit the least that satisfies the notification.
+* **Respect Provider Limits**: Clamp every interpolated field to the destination's documented maxima (Discord: 256 title / 4096 description / 1024 field; Slack: 150 header / 3000 section) before sending, rather than relying on the provider to truncate.
+* **Treat Content as Inert Data (OWASP LLM01/A03)**: Reflection text is user- and model-generated. Disable mentions explicitly (`allowed_mentions: {parse: []}` on Discord), escape Slack control sequences (`<`, `>`, `&`), and HTML-escape every interpolation in email. Nothing a user or the model writes may address a channel, inject markup, or alter the payload's structure.
+* **Document the Envelope**: For generic endpoints, show the exact JSON the consumer will receive in the configuration UI. An integration contract the developer has to reverse-engineer is an incomplete feature.
+
+### 9.4 Event Selection & Filtering
+* **Two Independent Axes**: A subscription filters on *lifecycle* (created, updated, pinned, deleted) and on *entry attributes* (category, reflection mode, whether it is pinned to a place). Both must be user-selectable per destination.
+* **Absent Means All**: An unset filter list means "no opinion", never "match nothing". Defaulting to silence loses notifications the user expected.
+* **Enforce Server-Side**: Client-side filtering exists only to avoid a pointless round-trip. The server re-applies every filter against its own copy of the configuration before dispatching.
+* **Coalesce Chatty Events**: Where the application writes on every keystroke, debounce the corresponding notification and suppress an update that immediately follows a creation. One notification per meaningful change, not per persisted byte.
+
+### 9.5 Verification Requirements
+* Provide a user-triggered **test delivery** for every channel, bypassing filters and reporting the concrete outcome inline.
+* Persist and display the last delivery status per destination, so a silently failing endpoint is visible rather than assumed healthy.
+* Cover with tests: destination allowlisting and rejection, private-address refusal, payload clamping, mention neutralisation, and authentication bypass attempts (missing, malformed, forged, and `alg:none` tokens).
