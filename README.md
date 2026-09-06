@@ -197,6 +197,8 @@ Every document lives under `users/{uid}`. There is no shared collection and no a
 | `users/{uid}/preferences/integrations` | Client | Webhook destinations and their event/category filters. |
 | `users/{uid}/insights/{entryId}` | Client, from the extraction endpoint's response | Domains, mood (valence + energy), belief shifts, recurring patterns. |
 | `users/{uid}/monthlySummaries/{YYYY-MM}` | Client, from the summary endpoint's response | The written retrospective for a closed month. |
+| `users/{uid}/preferences/card` | Client | Which share link, if any, the user has published. |
+| **`publicCards/{slug}`** | Client, on an explicit publish | **The one world-readable collection.** A journal card: title, level, score, counts and domain proportions. |
 
 The live rules are in [`firestore.rules`](./firestore.rules). Two things about their shape are
 deliberate and easy to get wrong:
@@ -207,6 +209,11 @@ deliberate and easy to get wrong:
 - **Analytics documents are shape-checked**, not just owner-checked. They are written straight from
   the browser, so the rule pins the field set, the enum values, and the array lengths rather than
   trusting the client.
+- **`publicCards` is readable by anyone**, and its field allowlist is the privacy guarantee rather
+  than a formality — it is what stops a modified client ever placing an entry title, an excerpt, a
+  place name or a coordinate into a world-readable document. Both copies of `ownerId` are pinned on
+  update, so one user cannot overwrite another's slug and an owner cannot reassign their own card.
+  **Adding a field to that allowlist is a decision that it is safe to publish.**
 
 ```javascript
 match /users/{userId}/insights/{entryId} {

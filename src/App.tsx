@@ -15,6 +15,7 @@ import { HistoryView } from './components/HistoryView.tsx';
 import { PlacesMapView } from './components/PlacesMapView.tsx';
 import { ProfileView } from './components/ProfileView.tsx';
 import { AnalyticsView } from './components/AnalyticsView.tsx';
+import { PublicCardPage } from './components/PublicCardPage.tsx';
 import { bindAppearanceAccount, noteSystemTheme, useAppearance } from './lib/appearance.ts';
 import { readCachedTheme, systemTheme } from './lib/theme.ts';
 import { AlertCircle } from 'lucide-react';
@@ -194,6 +195,12 @@ export function App() {
       return [updated, ...prev];
     });
   };
+
+  // A shared card is public: render it without waiting on, or requiring, auth.
+  const sharedSlug = /^\/c\/([a-z0-9]{6,32})\/?$/.exec(window.location.pathname)?.[1];
+  if (sharedSlug) {
+    return <PublicCardPage slug={sharedSlug} theme={theme} onToggleTheme={toggleTheme} />;
+  }
 
   // Initial Auth Loading Screen
   if (authLoading) {

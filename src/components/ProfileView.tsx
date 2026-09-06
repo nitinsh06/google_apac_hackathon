@@ -6,6 +6,7 @@ import {
   Database,
   LogOut,
   Moon,
+  IdCard,
   Palette,
   ShieldAlert,
   ShieldCheck,
@@ -16,6 +17,7 @@ import {
 import type { JournalCategory, JournalEntry, UserProfile } from '../types.ts';
 import { buildPlaces, categoryStyle } from '../lib/places.ts';
 import { IntegrationsPanel } from './IntegrationsPanel.tsx';
+import { CardPanel } from './CardPanel.tsx';
 import type { AppearanceSync } from '../lib/appearance.ts';
 import { ACCENTS } from '../lib/accent.ts';
 import { useAppearance } from '../lib/appearance.ts';
@@ -26,10 +28,11 @@ interface ProfileViewProps {
   onSignOut: () => void;
 }
 
-type SectionId = 'account' | 'preferences' | 'integrations';
+type SectionId = 'account' | 'card' | 'preferences' | 'integrations';
 
 const SECTIONS: Array<{ id: SectionId; label: string; icon: typeof UserRound; blurb: string }> = [
   { id: 'account', label: 'Account', icon: UserRound, blurb: 'Who you are and where your journal lives' },
+  { id: 'card', label: 'My card', icon: IdCard, blurb: 'The badge you have earned, and its share link' },
   { id: 'preferences', label: 'Preferences', icon: Palette, blurb: 'How ReflectAI looks on this device' },
   { id: 'integrations', label: 'Integrations', icon: Webhook, blurb: 'Send your journal events elsewhere' },
 ];
@@ -426,6 +429,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
                 </Block>
               </>
+            ) : section === 'card' ? (
+              <CardPanel user={user} entries={entries} />
             ) : section === 'preferences' ? (
               <PreferencesPanel />
             ) : (

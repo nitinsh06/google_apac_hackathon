@@ -534,6 +534,295 @@
   }
 }
 
+/* ─── Journal card ──────────────────────────────────────────────────────────
+   A trinket, so it is built like one: fixed portrait proportions, a foil frame
+   tinted by rarity, and a glare that tracks the pointer. Everything animated
+   here is decoration and is dropped entirely under reduced-motion.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.jm-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --foil-x: 50%;
+  --foil-y: 50%;
+  --h1: 212;
+  --h2: 220;
+  --h3: 205;
+  --card-scale: 1;
+
+  width: calc(320px * var(--card-scale));
+  perspective: 1100px;
+  flex: none;
+}
+
+.jm-card__frame {
+  position: relative;
+  aspect-ratio: 5 / 7;
+  border-radius: calc(20px * var(--card-scale));
+  padding: calc(3px * var(--card-scale));
+  overflow: hidden;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(
+    145deg,
+    hsl(var(--h1) 82% 62%),
+    hsl(var(--h2) 74% 48%) 38%,
+    hsl(var(--h3) 68% 38%) 62%,
+    hsl(var(--h1) 80% 58%)
+  );
+  box-shadow: 0 18px 40px -18px hsl(var(--h2) 60% 20% / 0.75),
+    0 2px 6px -2px rgb(0 0 0 / 0.35);
+}
+
+.jm-card[data-active] .jm-card__frame {
+  transition: transform 0.08s linear;
+  box-shadow: 0 28px 60px -22px hsl(var(--h2) 60% 20% / 0.85),
+    0 2px 8px -2px rgb(0 0 0 / 0.4);
+}
+
+.jm-card__inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: calc(10px * var(--card-scale));
+  border-radius: calc(17px * var(--card-scale));
+  padding: calc(16px * var(--card-scale));
+  background: linear-gradient(170deg, #10131c, #0a0c12 55%, #0d1018);
+  color: #f4f6fb;
+}
+
+/* Foil sweep and glare sit above the content but never eat pointer events. */
+.jm-card__foil,
+.jm-card__glare {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: calc(20px * var(--card-scale));
+}
+
+.jm-card__foil {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: repeating-linear-gradient(
+    115deg,
+    hsl(var(--h1) 100% 70% / 0.5) 0%,
+    hsl(var(--h2) 100% 72% / 0.35) 8%,
+    hsl(var(--h3) 100% 68% / 0.45) 16%,
+    transparent 26%
+  );
+  mix-blend-mode: color-dodge;
+}
+
+.jm-card[data-active] .jm-card__foil {
+  opacity: 0.5;
+}
+
+.jm-card__glare {
+  background: radial-gradient(
+    circle at var(--foil-x) var(--foil-y),
+    rgb(255 255 255 / 0.32),
+    transparent 45%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  mix-blend-mode: soft-light;
+}
+
+.jm-card[data-active] .jm-card__glare {
+  opacity: 1;
+}
+
+.jm-card__eyebrow {
+  font-size: calc(9px * var(--card-scale));
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: hsl(var(--h1) 60% 76%);
+}
+
+.jm-card__title {
+  margin-top: calc(3px * var(--card-scale));
+  font-size: calc(20px * var(--card-scale));
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: #ffffff;
+}
+
+.jm-card__level {
+  display: flex;
+  height: calc(42px * var(--card-scale));
+  width: calc(42px * var(--card-scale));
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc(12px * var(--card-scale));
+  border: 1px solid hsl(var(--h1) 70% 60% / 0.55);
+  background: hsl(var(--h2) 50% 16% / 0.9);
+}
+
+.jm-card__level-num {
+  font-size: calc(19px * var(--card-scale));
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.jm-card__level-word {
+  font-size: calc(7px * var(--card-scale));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: hsl(var(--h1) 60% 74%);
+}
+
+.jm-card__art {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: calc(120px * var(--card-scale));
+  overflow: hidden;
+  border-radius: calc(12px * var(--card-scale));
+  border: 1px solid hsl(var(--h2) 45% 30% / 0.7);
+  background: radial-gradient(circle at 50% 45%, #161b28, #080a10 72%);
+}
+
+.jm-card__rarity {
+  position: absolute;
+  bottom: calc(7px * var(--card-scale));
+  right: calc(8px * var(--card-scale));
+  border-radius: 999px;
+  border: 1px solid hsl(var(--h1) 70% 62% / 0.5);
+  background: rgb(0 0 0 / 0.55);
+  padding: calc(2px * var(--card-scale)) calc(7px * var(--card-scale));
+  font-size: calc(8px * var(--card-scale));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: hsl(var(--h1) 70% 80%);
+}
+
+.jm-card__bar {
+  display: flex;
+  height: calc(5px * var(--card-scale));
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.jm-card__bar span {
+  display: block;
+  height: 100%;
+}
+
+.jm-card__domain-labels {
+  margin-top: calc(6px * var(--card-scale));
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(9px * var(--card-scale));
+  font-size: calc(9px * var(--card-scale));
+  font-weight: 600;
+  color: #b9c2d4;
+}
+
+.jm-card__domain-labels span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4px * var(--card-scale));
+}
+
+.jm-card__domain-labels i {
+  display: block;
+  height: calc(5px * var(--card-scale));
+  width: calc(5px * var(--card-scale));
+  border-radius: 999px;
+}
+
+.jm-card__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: calc(4px * var(--card-scale));
+  border-radius: calc(10px * var(--card-scale));
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.04);
+  padding: calc(8px * var(--card-scale)) calc(6px * var(--card-scale));
+  text-align: center;
+}
+
+.jm-card__stats dt {
+  font-size: calc(7.5px * var(--card-scale));
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #8d97ab;
+}
+
+.jm-card__stats dd {
+  margin-top: calc(2px * var(--card-scale));
+  font-size: calc(15px * var(--card-scale));
+  font-weight: 800;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.jm-card__foot {
+  display: flex;
+  flex-direction: column;
+  gap: calc(5px * var(--card-scale));
+}
+
+.jm-card__xp {
+  height: calc(3px * var(--card-scale));
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+}
+
+.jm-card__xp span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--h1) 85% 62%), hsl(var(--h2) 90% 70%));
+}
+
+.jm-card__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: calc(8px * var(--card-scale));
+  font-size: calc(10px * var(--card-scale));
+  font-weight: 700;
+  color: #e3e8f2;
+}
+
+.jm-card__score {
+  flex: none;
+  color: hsl(var(--h1) 65% 74%);
+  font-variant-numeric: tabular-nums;
+}
+
+.jm-card__since {
+  font-size: calc(8.5px * var(--card-scale));
+  color: #7d879b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jm-card__frame {
+    transform: none !important;
+    transition: none;
+  }
+
+  .jm-card__foil,
+  .jm-card__glare {
+    display: none;
+  }
+}
+
 /* ─── Scroll affordances ────────────────────────────────────────────────── */
 
 .no-scrollbar {
