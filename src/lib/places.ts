@@ -6,7 +6,6 @@ export interface MapPlace {
   location: JournalLocation;
   entries: JournalEntry[];
   category: JournalCategory;
-  isSample: boolean;
   /** Epoch ms of the most recent reflection at this place. */
   latestAt: number;
 }
@@ -19,7 +18,6 @@ export interface PinGroup {
   places: MapPlace[];
   entryCount: number;
   category: JournalCategory;
-  isSample: boolean;
 }
 
 export interface CategoryStyle {
@@ -116,7 +114,7 @@ export function dominantCategory(entries: JournalEntry[]): JournalCategory {
  * Fold entries into places. Entries without usable coordinates are simply left
  * off the map. ~11 m of precision keeps repeat visits to one spot together.
  */
-export function buildPlaces(entries: JournalEntry[], isSample = false): MapPlace[] {
+export function buildPlaces(entries: JournalEntry[]): MapPlace[] {
   const buckets = new Map<string, { location: JournalLocation; entries: JournalEntry[] }>();
 
   for (const entry of entries) {
@@ -143,7 +141,6 @@ export function buildPlaces(entries: JournalEntry[], isSample = false): MapPlace
         location: bucket.location,
         entries: sorted,
         category: dominantCategory(sorted),
-        isSample,
         latestAt: timeOf(sorted[0]?.updatedAt),
       };
     })
@@ -228,7 +225,6 @@ export function groupPlaces(places: MapPlace[], zoom: number, radiusPx = 72): Pi
       places: members,
       entryCount: allEntries.length,
       category: dominantCategory(allEntries),
-      isSample: members.some((place) => place.isSample),
     });
   }
 

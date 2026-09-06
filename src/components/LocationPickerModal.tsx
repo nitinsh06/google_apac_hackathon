@@ -379,7 +379,7 @@ const LandmarkSearchBox: React.FC<{
           }}
           onFocus={() => setIsOpen(true)}
           placeholder="Search landmark, park, or place (e.g. Central Park, Eiffel Tower, Kyoto...)"
-          className="w-full bg-white border border-slate-300 hover:border-slate-400 focus:border-blue-500 rounded-xl pl-9 pr-9 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-xs transition-all font-medium"
+          className="w-full bg-surface border border-slate-300 hover:border-slate-400 focus:border-blue-500 rounded-xl pl-9 pr-9 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-xs transition-all font-medium"
         />
         {isSearching ? (
           <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin absolute right-3 top-3 pointer-events-none" />
@@ -399,7 +399,7 @@ const LandmarkSearchBox: React.FC<{
 
       {/* Autocomplete Dropdown */}
       {isOpen && hasSuggestions && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-surface border border-slate-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
           {/* Coordinates match pill */}
           {parsedCoords && (
             <button
@@ -888,8 +888,8 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         )}
 
         {/* Floating Coordinate & Instruction Pill on top of map */}
-        <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-mono font-semibold text-slate-700 shadow-xs pointer-events-none flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+        <div className="absolute bottom-2 left-2 bg-surface/95 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-mono font-semibold text-slate-700 shadow-xs pointer-events-none flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
           <span>Lat: {coords.lat.toFixed(6)}, Lng: {coords.lng.toFixed(6)}</span>
         </div>
       </div>
@@ -907,7 +907,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               </span>
             )}
           </div>
-          <span className="text-[10px] font-mono font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+          <span className="text-[10px] font-mono font-semibold text-slate-500 bg-surface px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
             {coords.lat >= 0 ? `${coords.lat.toFixed(4)}° N` : `${Math.abs(coords.lat).toFixed(4)}° S`},{' '}
             {coords.lng >= 0 ? `${coords.lng.toFixed(4)}° E` : `${Math.abs(coords.lng).toFixed(4)}° W`}
           </span>
@@ -938,7 +938,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                 }
               }}
               onBlur={() => handlePositionChange(coords, true)}
-              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs font-medium"
+              className="w-full bg-surface border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs font-medium"
             />
           </div>
 
@@ -966,7 +966,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                 }
               }}
               onBlur={() => handlePositionChange(coords, true)}
-              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs font-medium"
+              className="w-full bg-surface border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs font-medium"
             />
           </div>
         </div>
@@ -992,7 +992,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Golden Gate Park, Tokyo Skytree..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
             />
           </div>
         </div>
@@ -1013,7 +1013,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="e.g., San Francisco, CA or Quiet study nook"
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
           />
         </div>
       </div>
@@ -1023,14 +1023,14 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   return (
     <div
       id="location-picker-modal-overlay"
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-scrim/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         id="location-picker-modal-content"
-        className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden text-slate-800 flex flex-col my-auto"
+        className="bg-surface border border-slate-200 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden text-slate-800 flex flex-col my-auto"
       >
         {/* Modal Header */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
@@ -1091,7 +1091,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               type="button"
               onClick={handleSave}
               disabled={!name.trim()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-strong disabled:opacity-50 disabled:cursor-not-allowed text-accent-fg text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
             >
               <Check className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Pin to Reflection</span>

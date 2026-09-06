@@ -292,11 +292,11 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 overflow-hidden">
       {/* Top Header Card: Title, Category, Persistence Status */}
       <div
         id="reflection-meta-card"
-        className="bg-white border border-slate-200 rounded-xl p-4 mb-3 shadow-xs"
+        className="bg-surface border border-slate-200 rounded-xl p-4 mb-3 shadow-xs"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Editable Title */}
@@ -353,7 +353,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
                   onClick={() => handleCategoryChange(cat)}
                   className={`text-xs px-2.5 py-1 rounded-full transition-all cursor-pointer ${
                     entry.category === cat
-                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                      ? 'bg-accent text-accent-fg font-semibold shadow-xs'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium'
                   }`}
                 >
@@ -404,7 +404,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
               <button
                 id="retry-save-btn"
                 onClick={handleRetrySave}
-                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shrink-0 shadow-xs"
+                className="px-2.5 py-1 bg-danger hover:bg-danger-strong text-white rounded text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shrink-0 shadow-xs"
               >
                 <RotateCcw className="w-3 h-3" /> Retry Save
               </button>
@@ -429,7 +429,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 isActive
                   ? 'bg-blue-50 border border-blue-200 text-blue-700 shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  : 'bg-surface border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
               title={m.description}
             >
@@ -446,7 +446,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
         className="flex-1 overflow-y-auto space-y-4 pr-1 mb-3 rounded-xl scrollbar-thin scrollbar-thumb-slate-300"
       >
         {entry.turns.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-8 border border-dashed border-slate-300 rounded-xl bg-white/50">
+          <div className="h-full flex flex-col items-center justify-center text-center p-8 border border-dashed border-slate-300 rounded-xl bg-surface/50">
             <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-3 text-blue-600">
               <Brain className="w-6 h-6" />
             </div>
@@ -469,7 +469,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
                     setInputText(promptText);
                     textareaRef.current?.focus();
                   }}
-                  className="p-3 text-xs bg-white hover:bg-blue-50/60 border border-slate-200 hover:border-blue-300 rounded-lg text-slate-700 text-left transition-all cursor-pointer shadow-xs"
+                  className="p-3 text-xs bg-surface hover:bg-blue-50/60 border border-slate-200 hover:border-blue-300 rounded-lg text-slate-700 text-left transition-all cursor-pointer shadow-xs"
                 >
                   "{promptText}"
                 </button>
@@ -485,8 +485,8 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
               <div
                 className={`transition-all ${
                   turn.role === 'user'
-                    ? 'bg-white border border-slate-200 p-4 rounded-2xl rounded-tr-none shadow-xs text-slate-800 max-w-[85%]'
-                    : 'bg-blue-600 text-white p-5 rounded-2xl rounded-tl-none shadow-md max-w-[90%]'
+                    ? 'bg-surface border border-slate-200 p-4 rounded-2xl rounded-tr-none shadow-xs text-slate-800 max-w-[85%]'
+                    : 'bg-accent text-accent-fg p-5 rounded-2xl rounded-tl-none shadow-md max-w-[90%]'
                 }`}
               >
                 {/* Header line inside turn */}
@@ -494,7 +494,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
                   className={`flex items-center justify-between gap-4 mb-2 pb-2 text-[11px] ${
                     turn.role === 'user'
                       ? 'border-b border-slate-100 text-slate-500'
-                      : 'border-b border-white/20 text-blue-100'
+                      : 'border-b border-accent-fg/20 text-accent-fg/75'
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
@@ -502,14 +502,14 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
                       <span className="font-semibold text-slate-700">You</span>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 bg-white/20 rounded-sm flex items-center justify-center text-[10px] font-bold text-white">
+                        <div className="w-5 h-5 bg-accent-fg/20 rounded-sm flex items-center justify-center text-[10px] font-bold text-accent-fg">
                           AI
                         </div>
-                        <span className="text-xs font-bold uppercase tracking-widest text-blue-100">
+                        <span className="text-xs font-bold uppercase tracking-widest text-accent-fg/75">
                           Gemini Intelligence
                         </span>
                         {turn.modelUsed && (
-                          <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded bg-white/10 text-blue-100 font-mono">
+                          <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded bg-accent-fg/10 text-accent-fg/75 font-mono">
                             {turn.modelUsed}
                           </span>
                         )}
@@ -538,7 +538,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
                     {turn.role === 'model' && (
                       <button
                         onClick={() => handleCopyTurn(turn.id, turn.text)}
-                        className="p-1 hover:text-white text-blue-100 hover:bg-white/10 rounded transition-colors cursor-pointer"
+                        className="p-1 hover:text-accent-fg text-accent-fg/75 hover:bg-accent-fg/10 rounded transition-colors cursor-pointer"
                         title="Copy reflection"
                       >
                         {copiedTurnId === turn.id ? (
@@ -557,7 +557,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
                     {turn.text}
                   </p>
                 ) : (
-                  <div className="prose prose-invert prose-sm max-w-none text-white leading-relaxed space-y-2 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_li]:text-blue-50 [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-white/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:bg-blue-700 [&_code]:text-blue-50 [&_code]:px-1 [&_code]:rounded">
+                  <div className="prose prose-invert prose-sm max-w-none text-accent-fg leading-relaxed space-y-2 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_li]:text-blue-50 [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-white/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:bg-accent-strong [&_code]:text-blue-50 [&_code]:px-1 [&_code]:rounded">
                     <Markdown>{turn.text}</Markdown>
                   </div>
                 )}
@@ -580,7 +580,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
         {/* Generating Indicator */}
         {isGenerating && (
           <div className="flex items-start">
-            <div className="bg-blue-600 text-white rounded-2xl rounded-tl-none p-5 text-white max-w-[85%] flex items-center gap-3 shadow-md">
+            <div className="bg-accent text-accent-fg rounded-2xl rounded-tl-none p-5 text-accent-fg max-w-[85%] flex items-center gap-3 shadow-md">
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               <div className="text-xs">
                 <span className="font-bold text-white uppercase tracking-wider">Gemini 3.6 Flash</span>{' '}
@@ -597,7 +597,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
       <form
         id="reflection-form"
         onSubmit={handleSubmit}
-        className="bg-white border border-slate-300 rounded-xl shadow-lg p-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all"
+        className="bg-surface border border-slate-300 rounded-xl shadow-lg p-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all"
       >
         <textarea
           id="journal-input-textarea"
@@ -632,7 +632,7 @@ export const ReflectionEditor: React.FC<ReflectionEditorProps> = ({
             id="submit-prompt-btn"
             type="submit"
             disabled={!inputText.trim() || isGenerating}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-md shadow-blue-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer"
+            className="px-5 py-2 bg-accent hover:bg-accent-strong text-accent-fg rounded-lg text-sm font-bold shadow-md shadow-accent/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 cursor-pointer"
           >
             {isGenerating ? (
               <>

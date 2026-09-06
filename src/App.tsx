@@ -8,12 +8,15 @@ import {
 } from './lib/firebase.ts';
 import type { JournalEntry, JournalLocation, UserProfile } from './types.ts';
 import { Navbar } from './components/Navbar.tsx';
+import { Sidebar } from './components/Sidebar.tsx';
 import { LandingPage } from './components/LandingPage.tsx';
 import { ReflectionEditor } from './components/ReflectionEditor.tsx';
 import { HistoryView } from './components/HistoryView.tsx';
 import { PlacesMapView } from './components/PlacesMapView.tsx';
 import { ProfileView } from './components/ProfileView.tsx';
-import { SAMPLE_ENTRIES } from './lib/samplePlaces.ts';
+import { AnalyticsView } from './components/AnalyticsView.tsx';
+import { bindAppearanceAccount, noteSystemTheme, useAppearance } from './lib/appearance.ts';
+import { readCachedTheme, systemTheme } from './lib/theme.ts';
 import { AlertCircle } from 'lucide-react';
 
 export function App() {
@@ -21,13 +24,16 @@ export function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isGuestMode, setIsGuestMode] = useState(false);
 
   // App State
   const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [activeView, setActiveView] = useState<'editor' | 'history' | 'map' | 'profile'>('editor');
+  const [activeView, setActiveView] = useState<
+    'editor' | 'history' | 'map' | 'analytics' | 'profile'
+  >('editor');
   const [currentEntry, setCurrentEntry] = useState<JournalEntry | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
+  const { theme, toggleTheme } = useAppearance();
 
   // 1. Subscribe to Firebase Authentication state
   useEffect(() => {
@@ -37,7 +43,6 @@ export function App() {
       setAuthError(null);
 
       if (user) {
-        setIsGuestMode(false);
         // Initialize new entry draft if none active
         setCurrentEntry((prev) => {
           if (prev && prev.userId === user.uid) return prev;
@@ -52,15 +57,29 @@ export function App() {
           };
         });
       } else {
-        if (!isGuestMode) {
-          setCurrentEntry(null);
-          setEntries([]);
-        }
+        setCurrentEntry(null);
+        setEntries([]);
       }
     });
 
     return () => unsubscribe();
-  }, [isGuestMode]);
+  }, []);
+
+  // 1b. Appearance preferences live on the account, not the browser.
+  useEffect(() => {
+    bindAppearanceAccount(currentUser ? currentUser.uid : null);
+  }, [currentUser]);
+
+  // Track the OS only while nothing has been chosen on this device or account.
+  useEffect(() => {
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!media) return;
+    const onChange = () => {
+      if (!readCachedTheme()) noteSystemTheme(systemTheme());
+    };
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
 
   // 2. Subscribe to real-time user-isolated Firestore entries when signed in
   useEffect(() => {
@@ -117,27 +136,15 @@ export function App() {
       if (currentUser) {
         await logOut();
       }
-      setIsGuestMode(false);
       setActiveView('editor');
     } catch (err: any) {
       console.error('Sign out error:', err);
     }
   };
 
-  // Start Explore Demo / Guest Mode
-  const handleExploreDemo = () => {
-    setIsGuestMode(true);
-    const demoEntries = SAMPLE_ENTRIES;
-    setEntries(demoEntries);
-    if (!currentEntry) {
-      setCurrentEntry(demoEntries[0] || null);
-    }
-    setActiveView('map');
-  };
-
   // Start a fresh new reflection
   const handleNewEntry = () => {
-    const uid = currentUser ? currentUser.uid : 'guest-explorer';
+    const uid = currentUser?.uid ?? '';
     const freshEntry: JournalEntry = {
       id: `entry-${Date.now()}`,
       userId: uid,
@@ -159,7 +166,7 @@ export function App() {
 
   // Start a new reflection at a specific map location
   const handleNewEntryAtLocation = (loc: JournalLocation) => {
-    const uid = currentUser ? currentUser.uid : 'guest-explorer';
+    const uid = currentUser?.uid ?? '';
     const freshEntry: JournalEntry = {
       id: `entry-${Date.now()}`,
       userId: uid,
@@ -200,8 +207,7 @@ export function App() {
     );
   }
 
-  const effectiveUserId = currentUser ? currentUser.uid : 'guest-explorer';
-  const isDemo = !currentUser && isGuestMode;
+  const effectiveUserId = currentUser?.uid ?? '';
 
   const userProfile: UserProfile | null = currentUser
     ? {
@@ -213,58 +219,59 @@ export function App() {
           ? new Date(currentUser.metadata.creationTime).toISOString()
           : null,
       }
-    : isGuestMode
-    ? {
-        uid: 'guest-explorer',
-        displayName: 'Guest Explorer',
-        email: 'preview@guest.demo',
-        photoURL: null,
-      }
     : null;
 
   const taggedCount = entries.filter((e) => !!e.location).length;
-  const isAuthenticatedOrGuest = Boolean(currentUser || isGuestMode);
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-500/20 selection:text-blue-800">
-      {/* Top Navigation Bar */}
-      <Navbar
-        user={userProfile}
-        isGuest={isDemo}
-        onSignIn={handleSignIn}
-        onNewEntry={handleNewEntry}
-        activeView={activeView}
-        onSelectView={(view) => {
-          if (!currentUser && !isGuestMode) {
-            handleExploreDemo();
-          }
-          setActiveView(view);
-        }}
-        entryCount={entries.length}
-        taggedCount={taggedCount}
-      />
-
-      {/* Sync Error Banner if any */}
-      {syncError && (
-        <div
-          id="sync-error-banner"
-          className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800 flex items-center justify-center gap-2"
-        >
-          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>{syncError}</span>
-        </div>
-      )}
-
-      {/* Conditional Rendering: Unauthenticated Landing Page vs. Authenticated/Guest Dashboard */}
-      {!isAuthenticatedOrGuest ? (
+  // Signed out, the app is a single marketing page under a plain top bar.
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-blue-500/20 selection:text-blue-800">
+        <Navbar variant="landing" theme={theme} onToggleTheme={toggleTheme} />
         <LandingPage
           onSignIn={handleSignIn}
-          onExploreDemo={handleExploreDemo}
           isLoading={isSigningIn}
           errorMessage={authError}
         />
-      ) : (
-        <main className="flex-1 flex flex-col overflow-hidden">
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans selection:bg-blue-500/20 selection:text-blue-800">
+      {/* Side navigation: persistent rail on desktop, drawer below it */}
+      <Sidebar
+        user={userProfile}
+        onNewEntry={handleNewEntry}
+        activeView={activeView}
+        onSelectView={setActiveView}
+        entryCount={entries.length}
+        taggedCount={taggedCount}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        mobileOpen={navOpen}
+        onCloseMobile={() => setNavOpen(false)}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Navbar
+          variant="app"
+          onOpenNav={() => setNavOpen(true)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+
+        {/* Sync Error Banner if any */}
+        {syncError && (
+          <div
+            id="sync-error-banner"
+            className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800 flex items-center justify-center gap-2 shrink-0"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+            <span>{syncError}</span>
+          </div>
+        )}
+
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {activeView === 'editor' && currentEntry && (
             <ReflectionEditor
               userId={effectiveUserId}
@@ -282,28 +289,36 @@ export function App() {
             />
           )}
 
+          {activeView === 'analytics' && (
+            <AnalyticsView
+              userId={effectiveUserId}
+                    entries={entries}
+              onSelectEntry={(entryId) => {
+                const found = entries.find((item) => item.id === entryId);
+                if (found) handleSelectEntry(found);
+              }}
+            />
+          )}
+
           {activeView === 'profile' && userProfile && (
             <ProfileView
               user={userProfile}
-              isGuest={isDemo}
-              entries={entries}
+                    entries={entries}
               onSignOut={handleSignOut}
-              onSignIn={handleSignIn}
             />
           )}
 
           {activeView === 'map' && (
             <PlacesMapView
               userId={effectiveUserId}
-              isGuest={isDemo}
-              entries={entries}
+                    entries={entries}
               onSelectEntry={handleSelectEntry}
               onNewEntryAtLocation={handleNewEntryAtLocation}
               onNewEntry={handleNewEntry}
             />
           )}
         </main>
-      )}
+      </div>
     </div>
   );
 }

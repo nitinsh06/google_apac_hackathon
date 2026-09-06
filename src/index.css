@@ -1,5 +1,312 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Theme layer
+
+   Two semantic tokens carry the things a raw palette can't express:
+   `surface` (a raised panel, white on light and a lifted navy on dark) and
+   `accent` (the primary action, which must stay legible under white text in
+   both themes). Everything else rides on the palette itself — the dark block
+   below re-points Tailwind's own colour variables, so the ~470 existing
+   `slate-*` / `blue-*` utilities in the components invert with it.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f8fafc;
+  --color-accent: #2563eb;
+  --color-accent-strong: #1d4ed8;
+  --color-accent-soft: #eff6ff;
+  /* The ink on a filled accent surface. Light accents override it to near-black
+     rather than forcing every button to guess its own contrast. */
+  --color-accent-fg: #ffffff;
+
+  /* Solid status buttons: saturated enough to carry white text in both themes,
+     unlike the palette's 600s, whose tint ends have to invert for chip text. */
+  --color-danger: #e11d48;
+  --color-danger-strong: #be123c;
+  --color-success: #059669;
+  --color-success-strong: #047857;
+  --color-warn: #d97706;
+  --color-warn-strong: #b45309;
+
+  /* A deliberately high-contrast block (map toast, active filter chip, code
+     sample) and its ink. It flips with the theme so the block stays opposite
+     the page, which is the whole point of it. */
+  --color-inverse: #0f172a;
+  --color-inverse-fg: #f8fafc;
+
+  /* Modal scrims and cast shadows read as depth, never as colour — they stay
+     near-black in both themes rather than inverting with the neutrals. */
+  --color-scrim: #09090b;
+}
+
+:root {
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-surface: #19191c;
+  --color-surface-sunken: #0f0f11;
+  --color-accent: #3b82f6;
+  --color-accent-strong: #60a5fa;
+  --color-accent-soft: #1b2029;
+  --color-danger: #e11d48;
+  --color-danger-strong: #f43f5e;
+  --color-success: #059669;
+  --color-success-strong: #10b981;
+  --color-warn: #c2740a;
+  --color-warn-strong: #d97706;
+  --color-inverse: #e4e4e7;
+  --color-inverse-fg: #0c0c0e;
+
+  /* Neutrals invert end-for-end: page grounds become deep, inks become light.
+     The dark ramp is a true gray — slate's blue cast reads as a tint at these
+     luminances, so only the accent should carry hue.
+     `white` itself is left alone: it is the ink on accent buttons and map pins,
+     never a surface — panels use `bg-surface` so they can move with the theme. */
+  --color-slate-50: #0c0c0e;
+  --color-slate-100: #18181b;
+  --color-slate-200: #2a2a2f;
+  --color-slate-300: #3d3d43;
+  --color-slate-400: #85858e;
+  --color-slate-500: #9d9da6;
+  --color-slate-600: #b6b6be;
+  --color-slate-700: #d2d2d7;
+  --color-slate-800: #e7e7ea;
+  --color-slate-900: #f4f4f6;
+  --color-slate-950: #ffffff;
+
+  /* Accents keep their mid-tones (buttons stay saturated under white text)
+     and swap only the tint and shade ends that carry chips and chip text. */
+  --color-blue-50: #161a22;
+  --color-blue-100: #1c2331;
+  --color-blue-200: #2c3a52;
+  --color-blue-300: #3a5075;
+  --color-blue-600: #7ab2ff;
+  --color-blue-700: #9cc6ff;
+  --color-blue-800: #c3ddff;
+  --color-blue-900: #dbeafe;
+
+  --color-amber-50: #241d10;
+  --color-amber-100: #322715;
+  --color-amber-200: #4d3d1d;
+  --color-amber-400: #d99a12;
+  --color-amber-600: #f2b544;
+  --color-amber-700: #f8c86a;
+  --color-amber-800: #fbdc9a;
+  --color-amber-900: #fdecc8;
+
+  --color-emerald-50: #10241d;
+  --color-emerald-100: #163127;
+  --color-emerald-200: #1d4a3a;
+  --color-emerald-600: #34d399;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+
+  --color-rose-50: #271519;
+  --color-rose-100: #341c22;
+  --color-rose-200: #4d2a33;
+  --color-rose-700: #fda4af;
+  --color-rose-800: #fecdd3;
+  --color-rose-900: #ffe4e6;
+
+  --color-red-50: #271516;
+  --color-red-100: #341c1e;
+  --color-red-200: #4d2a2d;
+  --color-red-600: #f87171;
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+
+  --color-indigo-50: #1a1a26;
+  --color-indigo-600: #a5b4fc;
+  --color-indigo-700: #c7d2fe;
+
+  --color-violet-700: #ddd6fe;
+  --color-sky-700: #bae6fd;
+}
+
+
+/* ─── Accent choice ─────────────────────────────────────────────────────────
+   Each accent re-points the `blue-*` ramp as well as the `accent` tokens, so
+   the ~210 accent utilities already in the components follow the user's pick
+   without any of them naming a colour. `blue` is the default and needs no
+   block; the rest override, and the dark variants override again on top.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-accent='violet'] {
+  --color-accent: #7c3aed;
+  --color-accent-strong: #6d28d9;
+  --color-accent-soft: #f5f3ff;
+  --color-accent-fg: #ffffff;
+  --color-blue-50: #f5f3ff;
+  --color-blue-100: #ede9fe;
+  --color-blue-200: #ddd6fe;
+  --color-blue-300: #c4b5fd;
+  --color-blue-400: #a78bfa;
+  --color-blue-500: #8b5cf6;
+  --color-blue-600: #7c3aed;
+  --color-blue-700: #6d28d9;
+  --color-blue-800: #5b21b6;
+  --color-blue-900: #4c1d95;
+}
+
+[data-accent='emerald'] {
+  --color-accent: #047857;
+  --color-accent-strong: #065f46;
+  --color-accent-soft: #ecfdf5;
+  --color-accent-fg: #ffffff;
+  --color-blue-50: #ecfdf5;
+  --color-blue-100: #d1fae5;
+  --color-blue-200: #a7f3d0;
+  --color-blue-300: #6ee7b7;
+  --color-blue-400: #34d399;
+  --color-blue-500: #10b981;
+  --color-blue-600: #047857;
+  --color-blue-700: #036049;
+  --color-blue-800: #065f46;
+  --color-blue-900: #064e3b;
+}
+
+[data-accent='amber'] {
+  --color-accent: #d97706;
+  --color-accent-strong: #b45309;
+  --color-accent-soft: #fffbeb;
+  --color-accent-fg: #2a1a06;
+  --color-blue-50: #fffbeb;
+  --color-blue-100: #fef3c7;
+  --color-blue-200: #fde68a;
+  --color-blue-300: #fcd34d;
+  --color-blue-400: #fbbf24;
+  --color-blue-500: #f59e0b;
+  --color-blue-600: #b45309;
+  --color-blue-700: #92400e;
+  --color-blue-800: #78350f;
+  --color-blue-900: #5c290c;
+}
+
+[data-accent='rose'] {
+  --color-accent: #e11d48;
+  --color-accent-strong: #be123c;
+  --color-accent-soft: #fff1f2;
+  --color-accent-fg: #ffffff;
+  --color-blue-50: #fff1f2;
+  --color-blue-100: #ffe4e6;
+  --color-blue-200: #fecdd3;
+  --color-blue-300: #fda4af;
+  --color-blue-400: #fb7185;
+  --color-blue-500: #f43f5e;
+  --color-blue-600: #e11d48;
+  --color-blue-700: #be123c;
+  --color-blue-800: #9f1239;
+  --color-blue-900: #881337;
+}
+
+[data-theme='dark'][data-accent='violet'] {
+  --color-accent: #8b5cf6;
+  --color-accent-strong: #a78bfa;
+  --color-accent-soft: #1a1726;
+  --color-accent-fg: #ffffff;
+  --color-blue-50: #1a1726;
+  --color-blue-100: #221d33;
+  --color-blue-200: #342a52;
+  --color-blue-300: #453a6b;
+  --color-blue-600: #b7a2fc;
+  --color-blue-700: #cbbcfd;
+  --color-blue-800: #ded4fe;
+  --color-blue-900: #ede9fe;
+}
+
+[data-theme='dark'][data-accent='emerald'] {
+  --color-accent: #059669;
+  --color-accent-strong: #047857;
+  --color-accent-soft: #10201b;
+  --color-accent-fg: #ffffff;
+  --color-blue-50: #10201b;
+  --color-blue-100: #152a23;
+  --color-blue-200: #1e4034;
+  --color-blue-300: #275646;
+  --color-blue-600: #4bdca4;
+  --color-blue-700: #7eeac0;
+  --color-blue-800: #b0f4d8;
+  --color-blue-900: #d1fae5;
+}
+
+[data-theme='dark'][data-accent='amber'] {
+  --color-accent: #f59e0b;
+  --color-accent-strong: #fbbf24;
+  --color-accent-soft: #221c10;
+  --color-accent-fg: #2a1a06;
+  --color-blue-50: #221c10;
+  --color-blue-100: #2e2514;
+  --color-blue-200: #47391d;
+  --color-blue-300: #5f4c26;
+  --color-blue-600: #f2b544;
+  --color-blue-700: #f7ca70;
+  --color-blue-800: #fbdc9e;
+  --color-blue-900: #fef3c7;
+}
+
+[data-theme='dark'][data-accent='rose'] {
+  --color-accent: #e11d48;
+  --color-accent-strong: #f43f5e;
+  --color-accent-soft: #24151a;
+  --color-accent-fg: #ffffff;
+  --color-blue-50: #24151a;
+  --color-blue-100: #301b21;
+  --color-blue-200: #4a2933;
+  --color-blue-300: #633743;
+  --color-blue-600: #fb7f90;
+  --color-blue-700: #fda9b3;
+  --color-blue-800: #fecdd3;
+  --color-blue-900: #ffe4e6;
+}
+
+/* The palette swap can't reach a hardcoded literal, so the pieces that paint
+   themselves — map chrome, Leaflet's popup, native scrollbars — restate here. */
+[data-theme='dark'] .thin-scroll {
+  scrollbar-color: #3d3d43 transparent;
+}
+
+[data-theme='dark'] .thin-scroll::-webkit-scrollbar-thumb {
+  background-color: #3d3d43;
+}
+
+[data-theme='dark'] .leaflet-container {
+  background: #0c0c0e;
+}
+
+[data-theme='dark'] .leaflet-popup-content-wrapper {
+  border-color: #2a2a2f !important;
+  background: #19191c !important;
+  color: #f4f4f6;
+}
+
+[data-theme='dark'] .leaflet-popup-tip {
+  background: #19191c !important;
+  border-right-color: #2a2a2f;
+  border-bottom-color: #2a2a2f;
+}
+
+[data-theme='dark'] .leaflet-popup-close-button {
+  color: #9d9da6 !important;
+}
+
+[data-theme='dark'] .leaflet-popup-close-button:hover {
+  background: #2a2a2f !important;
+  color: #f4f4f6 !important;
+}
+
+/* Theme changes are a deliberate switch, not a transition to watch crawl
+   across the page — repaint instantly, but keep the toggle's own knob fluid. */
+[data-theme-switching] *,
+[data-theme-switching] *::before,
+[data-theme-switching] *::after {
+  transition: none !important;
+}
+
 /* ─── Leaflet shell (location picker) ───────────────────────────────────── */
 
 .leaflet-container {
@@ -155,12 +462,8 @@
 }
 
 .jm-pin.is-selected .jm-pin__tile {
-  box-shadow: 0 0 0 3px #ffffff, 0 0 0 6.5px #2563eb,
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 6.5px var(--color-accent),
     0 16px 30px -10px rgba(15, 23, 42, 0.6);
-}
-
-.jm-pin.is-sample .jm-pin__tile {
-  filter: saturate(0.7);
 }
 
 .jm-pin.is-pending .jm-pin__body {
@@ -205,7 +508,7 @@
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  background: #2563eb;
+  background: var(--color-accent);
   animation: jmPulse 1.9s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
@@ -215,7 +518,7 @@
   height: 14px;
   border: 2.5px solid #ffffff;
   border-radius: 999px;
-  background: #2563eb;
+  background: var(--color-accent);
   box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.5);
 }
 

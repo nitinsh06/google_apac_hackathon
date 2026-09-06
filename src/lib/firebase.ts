@@ -12,6 +12,7 @@ import {
 import type { JournalEntry } from '../types.ts';
 import { app, auth, db, googleProvider, sanitizePayload } from './firebaseApp.ts';
 import { emitReflectionEvent, noteKnownEntries, classifyWrite } from './webhooks.ts';
+import { deleteInsight, queueEntryExtraction } from './analytics.ts';
 
 export { app, auth, db, googleProvider, sanitizePayload };
 
@@ -46,6 +47,9 @@ export async function saveJournalEntry(userId: string, entry: JournalEntry): Pro
   await setDoc(entryDocRef, sanitized, { merge: true });
 
   if (event) void emitReflectionEvent(event, entry);
+
+  // Analysis is derived data, so it trails the write and never blocks it.
+  queueEntryExtraction(entry);
 }
 
 /**
@@ -67,6 +71,7 @@ export async function deleteJournalEntryWithEvent(
 ): Promise<void> {
   await deleteJournalEntry(userId, entry.id);
   void emitReflectionEvent('reflection.deleted', entry);
+  void deleteInsight(userId, entry.id);
 }
 
 /**

@@ -9,6 +9,29 @@
     <meta property="og:description" content="User-authenticated personal reflection and brainstorming journal with location-aware entries, powered by Gemini and Firestore." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Paint the stored theme and accent before first render, so neither a
+      // dark session nor a custom accent flashes the default first.
+      // Mirrors resolveTheme()/resolveAccent() in src/lib/{theme,accent}.ts.
+      (function () {
+        try {
+          var stored = localStorage.getItem('reflectai:theme');
+          var theme =
+            stored === 'dark' || stored === 'light'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.dataset.theme = theme;
+          var accent = localStorage.getItem('reflectai:accent');
+          document.documentElement.dataset.accent =
+            ['blue', 'violet', 'emerald', 'amber', 'rose'].indexOf(accent) >= 0 ? accent : 'blue';
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+          document.documentElement.dataset.accent = 'blue';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

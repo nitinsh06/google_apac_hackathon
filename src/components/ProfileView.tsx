@@ -1,31 +1,36 @@
 import React, { useMemo, useState } from 'react';
 import {
   Check,
+  Cloud,
   Copy,
   Database,
-  LogIn,
   LogOut,
+  Moon,
+  Palette,
   ShieldAlert,
   ShieldCheck,
+  Sun,
   UserRound,
   Webhook,
 } from 'lucide-react';
 import type { JournalCategory, JournalEntry, UserProfile } from '../types.ts';
 import { buildPlaces, categoryStyle } from '../lib/places.ts';
 import { IntegrationsPanel } from './IntegrationsPanel.tsx';
+import type { AppearanceSync } from '../lib/appearance.ts';
+import { ACCENTS } from '../lib/accent.ts';
+import { useAppearance } from '../lib/appearance.ts';
 
 interface ProfileViewProps {
   user: UserProfile;
-  isGuest: boolean;
   entries: JournalEntry[];
   onSignOut: () => void;
-  onSignIn?: () => void;
 }
 
-type SectionId = 'account' | 'integrations';
+type SectionId = 'account' | 'preferences' | 'integrations';
 
 const SECTIONS: Array<{ id: SectionId; label: string; icon: typeof UserRound; blurb: string }> = [
   { id: 'account', label: 'Account', icon: UserRound, blurb: 'Who you are and where your journal lives' },
+  { id: 'preferences', label: 'Preferences', icon: Palette, blurb: 'How ReflectAI looks on this device' },
   { id: 'integrations', label: 'Integrations', icon: Webhook, blurb: 'Send your journal events elsewhere' },
 ];
 
@@ -62,7 +67,7 @@ const Block: React.FC<{ title: string; description?: string; children: React.Rea
   description,
   children,
 }) => (
-  <section className="rounded-xl border border-slate-200 bg-white shadow-xs">
+  <section className="rounded-xl border border-slate-200 bg-surface shadow-xs">
     <header className="border-b border-slate-200 px-4 py-3 sm:px-5">
       <h3 className="text-sm font-bold tracking-tight text-slate-900">{title}</h3>
       {description && <p className="mt-0.5 text-xs leading-relaxed text-slate-600">{description}</p>}
@@ -101,12 +106,127 @@ const CopyableId: React.FC<{ value: string }> = ({ value }) => {
   );
 };
 
+const SYNC_COPY: Record<AppearanceSync, string> = {
+  local: 'Saved on this device. Sign in to carry it across your devices.',
+  syncing: 'Saving to your account…',
+  synced: 'Saved to your account and synced across your devices.',
+  error: 'Could not reach your account — this device is up to date, others may not be.',
+};
+
+/**
+ * Appearance settings, stored on the user's own Firestore document so the
+ * choice follows them rather than the browser they happened to pick it in.
+ */
+const PreferencesPanel: React.FC = () => {
+  const { theme, accent, sync, setTheme, setAccent } = useAppearance();
+
+  const modes: Array<{ id: 'light' | 'dark'; label: string; icon: typeof Sun }> = [
+    { id: 'light', label: 'Light', icon: Sun },
+    { id: 'dark', label: 'Dark', icon: Moon },
+  ];
+
+  return (
+    <>
+      <Block
+        title="Accent"
+        description="Sets the colour of buttons, links, active tabs and map highlights."
+      >
+        <div className="py-4">
+          <div className="flex flex-wrap gap-2.5">
+            {ACCENTS.map(({ id, label, swatch, ink }) => {
+              const active = accent === id;
+              return (
+                <button
+                  key={id}
+                  id={`accent-option-${id}`}
+                  type="button"
+                  onClick={() => setAccent(id)}
+                  aria-pressed={active}
+                  title={label}
+                  className={`group flex min-w-[92px] flex-1 flex-col items-center gap-2 rounded-xl border px-3 py-3 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                    active
+                      ? 'border-blue-300 bg-blue-50'
+                      : 'border-slate-200 bg-surface hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    style={{ backgroundColor: swatch }}
+                    className={`flex h-7 w-7 items-center justify-center rounded-full shadow-sm shadow-scrim/25 transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                      active ? 'scale-110 ring-2 ring-slate-50 ring-offset-2 ring-offset-blue-300' : 'group-hover:scale-105'
+                    }`}
+                  >
+                    {active && <Check className="h-3.5 w-3.5 stroke-[3]" style={{ color: ink }} />}
+                  </span>
+                  <span
+                    className={`text-[11px] font-semibold ${active ? 'text-blue-700' : 'text-slate-600'}`}
+                  >
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+            Status colours stay fixed — success, warnings and destructive actions never borrow the
+            accent, so they keep meaning the same thing whichever you pick.
+          </p>
+        </div>
+      </Block>
+
+      <Block title="Theme" description="Follows your system until you choose one here.">
+        <div className="py-4">
+          <div className="flex gap-2.5">
+            {modes.map(({ id, label, icon: Icon }) => {
+              const active = theme === id;
+              return (
+                <button
+                  key={id}
+                  id={`theme-option-${id}`}
+                  type="button"
+                  onClick={() => setTheme(id)}
+                  aria-pressed={active}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                    active
+                      ? 'border-blue-300 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-surface text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className={`h-3.5 w-3.5 ${active ? 'text-blue-600' : 'text-slate-500'}`} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Block>
+
+      {/* Where it went, in a line — a preference the user cannot confirm landed
+          is a preference they will set twice. */}
+      <p
+        id="appearance-sync-status"
+        role="status"
+        className={`flex items-center gap-1.5 px-1 text-[11px] ${
+          sync === 'error' ? 'text-rose-700' : 'text-slate-500'
+        }`}
+      >
+        {sync === 'synced' ? (
+          <Check className="h-3 w-3 shrink-0 text-emerald-600" />
+        ) : sync === 'error' ? (
+          <ShieldAlert className="h-3 w-3 shrink-0" />
+        ) : (
+          <Cloud className="h-3 w-3 shrink-0" />
+        )}
+        {SYNC_COPY[sync]}
+      </p>
+    </>
+  );
+};
+
 export const ProfileView: React.FC<ProfileViewProps> = ({
   user,
-  isGuest,
   entries,
   onSignOut,
-  onSignIn,
 }) => {
   const [section, setSection] = useState<SectionId>('account');
 
@@ -158,8 +278,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   aria-current={active ? 'page' : undefined}
                   className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors cursor-pointer md:w-full ${
                     active
-                      ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200'
-                      : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
+                      ? 'bg-surface text-blue-700 shadow-xs ring-1 ring-slate-200'
+                      : 'text-slate-600 hover:bg-surface/70 hover:text-slate-900'
                   }`}
                 >
                   <Icon className={`h-4 w-4 ${active ? 'text-blue-600' : 'text-slate-500'}`} />
@@ -173,7 +293,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             {section === 'account' ? (
               <>
                 {/* Identity */}
-                <section className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5">
+                <section className="flex items-center gap-4 rounded-xl border border-slate-200 bg-surface p-4 shadow-xs sm:p-5">
                   {user.photoURL ? (
                     <img
                       src={user.photoURL}
@@ -193,14 +313,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </h2>
                     <p className="truncate text-xs text-slate-600">{user.email}</p>
                     <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-bold ${
-                          isGuest
-                            ? 'border-amber-200 bg-amber-50 text-amber-800'
-                            : 'border-slate-200 bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        {isGuest ? 'Guest demo' : 'Google account'}
+                      <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                        Google account
                       </span>
                       {memberSince && (
                         <span className="text-[11px] text-slate-600">Journaling since {memberSince}</span>
@@ -208,25 +322,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </p>
                   </div>
                 </section>
-
-                {isGuest && (
-                  <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs leading-relaxed text-amber-900">
-                      You are exploring a demo. Nothing you write is saved. Sign in with Google to
-                      keep your reflections and pin them to your own map.
-                    </p>
-                    {onSignIn && (
-                      <button
-                        type="button"
-                        onClick={onSignIn}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
-                      >
-                        <LogIn className="h-3.5 w-3.5" />
-                        Sign in to save
-                      </button>
-                    )}
-                  </div>
-                )}
 
                 {/* Journal shape */}
                 <Block
@@ -299,22 +394,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </code>
                     </Row>
                     <Row label="Isolation">
-                      {isGuest ? (
-                        <span className="inline-flex items-center gap-1.5 font-semibold text-amber-800">
-                          <ShieldAlert className="h-3.5 w-3.5" />
-                          Not persisted in demo mode
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Owner-bound rules active
-                        </span>
-                      )}
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Owner-bound rules active
+                      </span>
                     </Row>
                     <Row label="Sync">
                       <span className="inline-flex items-center gap-1.5 text-slate-700">
                         <Database className="h-3.5 w-3.5 text-slate-500" />
-                        {isGuest ? 'Local session only' : 'Live with Cloud Firestore'}
+                        Live with Cloud Firestore
                       </span>
                     </Row>
                   </dl>
@@ -324,24 +412,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <Block title="Session" description="Signing out clears this session on this device.">
                   <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs leading-relaxed text-slate-600">
-                      {isGuest
-                        ? 'Leaving the demo returns you to the welcome screen.'
-                        : 'Your reflections stay safe in Firestore and return when you sign back in.'}
+                      Your reflections stay safe in Firestore and return when you sign back in.
                     </p>
                     <button
                       id="profile-sign-out-btn"
                       type="button"
                       onClick={onSignOut}
-                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 cursor-pointer"
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 cursor-pointer"
                     >
                       <LogOut className="h-3.5 w-3.5" />
-                      {isGuest ? 'Leave demo' : 'Sign out'}
+                      Sign out
                     </button>
                   </div>
                 </Block>
               </>
+            ) : section === 'preferences' ? (
+              <PreferencesPanel />
             ) : (
-              <IntegrationsPanel userId={user.uid} isGuest={isGuest} />
+              <IntegrationsPanel userId={user.uid} />
             )}
           </div>
         </div>

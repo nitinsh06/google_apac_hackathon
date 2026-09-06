@@ -28,12 +28,10 @@ import type { MapPlace } from '../lib/places.ts';
 import { MAP_TYPES, PlacesMap } from './PlacesMap.tsx';
 import type { Coords, MapTypeId, PlacesMapHandle } from './PlacesMap.tsx';
 import { CoverTile } from './CoverTile.tsx';
-import { SAMPLE_ENTRIES } from '../lib/samplePlaces.ts';
 import { saveJournalEntry } from '../lib/firebase.ts';
 
 interface PlacesMapViewProps {
   userId: string;
-  isGuest?: boolean;
   entries: JournalEntry[];
   onSelectEntry: (entry: JournalEntry) => void;
   onNewEntryAtLocation?: (location: JournalLocation) => void;
@@ -103,7 +101,7 @@ const EntryCard: React.FC<{ entry: JournalEntry; onOpen: () => void; wide?: bool
       onClick={onOpen}
       className={`group snap-start shrink-0 text-left ${
         wide ? 'w-full' : 'w-[252px]'
-      } rounded-xl border border-slate-200 bg-white p-3 shadow-xs transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer`}
+      } rounded-xl border border-slate-200 bg-surface p-3 shadow-xs transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer`}
     >
       <span className="flex items-center justify-between gap-2">
         <span
@@ -139,7 +137,7 @@ const PlaceCard: React.FC<{ place: MapPlace; onOpen: () => void }> = ({ place, o
   <button
     type="button"
     onClick={onOpen}
-    className="group snap-start w-[236px] shrink-0 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
+    className="group snap-start w-[236px] shrink-0 rounded-xl border border-slate-200 bg-surface p-3 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
   >
     <span className="flex items-start gap-2.5">
       <CoverTile category={place.category} />
@@ -161,7 +159,6 @@ const PlaceCard: React.FC<{ place: MapPlace; onOpen: () => void }> = ({ place, o
 
 export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
   userId,
-  isGuest = false,
   entries,
   onSelectEntry,
   onNewEntryAtLocation,
@@ -178,7 +175,6 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
   const [userLocation, setUserLocation] = useState<Coords | null>(null);
   const [locateError, setLocateError] = useState<string | null>(null);
   const [fitTrigger, setFitTrigger] = useState(0);
-  const [seedState, setSeedState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [sheetHeight, setSheetHeight] = useState(196);
 
   const mapHandle = useRef<PlacesMapHandle>(null);
@@ -187,13 +183,10 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
 
   // Entries without coordinates simply stay off the map.
   const ownPlaces = useMemo(() => buildPlaces(entries), [entries]);
-  const samplePlaces = useMemo(() => buildPlaces(SAMPLE_ENTRIES, true), []);
-  const showingSamples = ownPlaces.length === 0;
-  const sourcePlaces = showingSamples ? samplePlaces : ownPlaces;
 
   const places = useMemo(
-    () => matchPlaces(sourcePlaces, query, category),
-    [sourcePlaces, query, category]
+    () => matchPlaces(ownPlaces, query, category),
+    [ownPlaces, query, category]
   );
 
   const pinnedCount = useMemo(
@@ -286,29 +279,6 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
     });
   };
 
-  const handleSeedSamples = async () => {
-    if (!userId || isGuest || seedState === 'saving' || seedState === 'done') return;
-    setSeedState('saving');
-    try {
-      const stamp = Date.now();
-      await Promise.all(
-        SAMPLE_ENTRIES.map((entry, index) =>
-          saveJournalEntry(userId, {
-            ...entry,
-            id: `sample-${stamp}-${index}`,
-            userId,
-            createdAt: entry.createdAt,
-            updatedAt: new Date().toISOString(),
-          })
-        )
-      );
-      setSeedState('done');
-    } catch (error) {
-      console.error('Could not add the sample places:', error);
-      setSeedState('error');
-    }
-  };
-
   // ── Bottom-sheet drag ────────────────────────────────────────────────────
   const drag = useRef<{ y: number; moved: boolean } | null>(null);
   const swallowClick = useRef(false);
@@ -354,7 +324,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
   return (
     <div
       id="places-map-view"
-      className="relative flex-1 min-h-0 overflow-hidden bg-slate-200"
+      className="relative isolate flex-1 min-h-0 overflow-hidden bg-slate-200"
       style={{ ['--sheet-inset' as string]: `${sheetHeight}px` }}
     >
       <PlacesMap
@@ -383,7 +353,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search places or reflections"
               aria-label="Search places or reflections"
-              className="w-full rounded-full border border-slate-200/80 bg-white/95 py-2.5 pl-10 pr-10 text-sm font-medium text-slate-900 shadow-lg shadow-slate-900/10 backdrop-blur-md transition-shadow placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-full border border-slate-200/80 bg-surface/95 py-2.5 pl-10 pr-10 text-sm font-medium text-slate-900 shadow-lg shadow-scrim/10 backdrop-blur-md transition-shadow placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {query && (
               <button
@@ -409,8 +379,8 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
                   aria-pressed={active}
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur-md transition-colors cursor-pointer ${
                     active
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-200/80 bg-white/95 text-slate-700 hover:bg-white hover:text-slate-900'
+                      ? 'border-inverse bg-inverse text-inverse-fg'
+                      : 'border-slate-200/80 bg-surface/95 text-slate-700 hover:bg-surface hover:text-slate-900'
                   }`}
                 >
                   {dot && (
@@ -426,7 +396,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
         </div>
 
         <div className="pointer-events-auto relative flex flex-col items-end gap-2">
-          <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-lg shadow-slate-900/10 backdrop-blur-md">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-surface/95 shadow-lg shadow-scrim/10 backdrop-blur-md">
             <button type="button" onClick={() => mapHandle.current?.zoomIn()} aria-label="Zoom in" className={hudButton}>
               <Plus className="h-4 w-4" />
             </button>
@@ -436,7 +406,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
             </button>
           </div>
 
-          <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-lg shadow-slate-900/10 backdrop-blur-md">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-surface/95 shadow-lg shadow-scrim/10 backdrop-blur-md">
             <button
               type="button"
               onClick={() => setFitTrigger((n) => n + 1)}
@@ -477,10 +447,10 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
               setPendingPin(null);
             }}
             aria-pressed={dropMode}
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold shadow-lg shadow-slate-900/10 backdrop-blur-md transition-colors cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold shadow-lg shadow-scrim/10 backdrop-blur-md transition-colors cursor-pointer ${
               dropMode
-                ? 'border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700'
-                : 'border-slate-200/80 bg-white/95 text-slate-700 hover:text-slate-900'
+                ? 'border-success-strong bg-success text-white hover:bg-success-strong'
+                : 'border-slate-200/80 bg-surface/95 text-slate-700 hover:text-slate-900'
             }`}
           >
             <MapPin className="h-3.5 w-3.5" />
@@ -491,7 +461,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
             <div
               role="group"
               aria-label="Map style"
-              className="absolute right-0 top-[8.25rem] w-40 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xl shadow-slate-900/15"
+              className="absolute right-0 top-[8.25rem] w-40 overflow-hidden rounded-xl border border-slate-200/80 bg-surface shadow-xl shadow-scrim/15"
             >
               {(Object.keys(MAP_TYPES) as MapTypeId[]).map((id) => (
                 <button
@@ -519,7 +489,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
       {locateError && (
         <p
           role="status"
-          className="pointer-events-none absolute left-1/2 top-3 z-[520] max-w-xs -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-xs font-medium text-white shadow-lg sm:top-4"
+          className="pointer-events-none absolute left-1/2 top-3 z-[520] max-w-xs -translate-x-1/2 rounded-lg bg-inverse px-3 py-2 text-center text-xs font-medium text-inverse-fg shadow-lg sm:top-4"
         >
           {locateError}
         </p>
@@ -529,7 +499,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] flex justify-center p-3 pb-7 sm:p-4 sm:pb-7">
         <div
           ref={sheetRef}
-          className="pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_18px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur-xl"
+          className="pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-surface/95 shadow-[0_18px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur-xl"
         >
           <div
             onPointerDown={onGrabStart}
@@ -580,7 +550,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
                   <button
                     type="button"
                     onClick={() => onNewEntryAtLocation(selectedPlace.location)}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-fg shadow-sm transition-colors hover:bg-accent-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Write here</span>
@@ -607,7 +577,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
                 <button
                   type="button"
                   onClick={handleWriteAtPendingPin}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 cursor-pointer"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-success px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-success-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Write here
@@ -625,11 +595,13 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
               <>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-base font-bold tracking-tight text-slate-900">
-                    {showingSamples ? 'Places to explore' : 'Your places'}
+                    Your places
                   </h2>
                   <p className="truncate text-xs text-slate-600">
                     {places.length === 0
-                      ? 'Nothing matches these filters yet.'
+                      ? isFiltered
+                        ? 'Nothing matches these filters yet.'
+                        : 'No reflection has a location yet.'
                       : `${places.length} ${places.length === 1 ? 'place' : 'places'} · ${reflectionCount(
                           pinnedCount
                         )}`}
@@ -638,7 +610,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
                 <button
                   type="button"
                   onClick={onNewEntry}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-fg shadow-sm transition-colors hover:bg-accent-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">New reflection</span>
@@ -672,7 +644,7 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
                     setQuery('');
                     setCategory('All');
                   }}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
                 >
                   Clear filters
                 </button>
@@ -747,39 +719,12 @@ export const PlacesMapView: React.FC<PlacesMapViewProps> = ({
                     ))}
               </div>
               <div
-                className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white/95 to-transparent"
+                className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface/95 to-transparent"
                 aria-hidden="true"
               />
             </div>
           )}
 
-          {/* Starter places prompt */}
-          {showingSamples && !selectedPlace && !pendingPin && (
-            <div className="flex items-center gap-3 border-t border-amber-200/80 bg-amber-50/80 px-4 py-2.5">
-              <Sparkles className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
-              <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-amber-900">
-                {isGuest
-                  ? 'These are sample places. Sign in to pin reflections of your own.'
-                  : 'None of your reflections has a location yet — these are samples.'}
-              </p>
-              {!isGuest && (
-                <button
-                  type="button"
-                  onClick={handleSeedSamples}
-                  disabled={seedState === 'saving' || seedState === 'done'}
-                  className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
-                >
-                  {seedState === 'done'
-                    ? 'Added to your journal'
-                    : seedState === 'saving'
-                    ? 'Adding…'
-                    : seedState === 'error'
-                    ? 'Try again'
-                    : 'Add them to my journal'}
-                </button>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

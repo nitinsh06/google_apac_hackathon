@@ -286,7 +286,7 @@ async function deliver(event: DispatchEventId, entry: JournalEntry): Promise<voi
 
 /**
  * Announce a reflection change. Safe to call unconditionally: it returns
- * immediately when the user is a guest or has no matching endpoint.
+ * immediately when the user has no matching endpoint.
  */
 export async function emitReflectionEvent(
   event: WebhookEventId,

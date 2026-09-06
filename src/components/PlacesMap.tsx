@@ -3,6 +3,7 @@ import {
   APIProvider,
   AdvancedMarker,
   APILoadingStatus,
+  ColorScheme,
   Map as GoogleMap,
   useApiLoadingStatus,
   useMap,
@@ -12,12 +13,18 @@ import { AlertCircle, KeyRound, MapPin, Plus } from 'lucide-react';
 import { categoryStyle, groupPlaces, reflectionCount } from '../lib/places.ts';
 import type { MapPlace, PinGroup } from '../lib/places.ts';
 import { categoryIcon } from './CoverTile.tsx';
+import { useThemeValue } from '../lib/theme.ts';
 
 export type MapTypeId = 'roadmap' | 'satellite';
 
-export const MAP_TYPES: Record<MapTypeId, { label: string; googleId: string; backdrop: string }> = {
-  roadmap: { label: 'Map', googleId: 'roadmap', backdrop: '#e8eaed' },
-  satellite: { label: 'Satellite', googleId: 'hybrid', backdrop: '#0b1a2b' },
+/** Backdrops are what shows while tiles stream in, so each pairs with the
+ *  colour scheme Google will render underneath. */
+export const MAP_TYPES: Record<
+  MapTypeId,
+  { label: string; googleId: string; backdrop: string; backdropDark: string }
+> = {
+  roadmap: { label: 'Map', googleId: 'roadmap', backdrop: '#e8eaed', backdropDark: '#1b1b1f' },
+  satellite: { label: 'Satellite', googleId: 'hybrid', backdrop: '#0b1a2b', backdropDark: '#0b1a2b' },
 };
 
 export interface Coords {
@@ -81,7 +88,7 @@ const PlacePin: React.FC<{ group: PinGroup; isSelected: boolean; index: number }
 
   return (
     <div
-      className={`jm-pin${isSelected ? ' is-selected' : ''}${group.isSample ? ' is-sample' : ''}`}
+      className={`jm-pin${isSelected ? ' is-selected' : ''}`}
     >
       <div className="jm-pin__body" style={{ animationDelay: `${Math.min(index * 26, 260)}ms` }}>
         {stacked && (
@@ -307,7 +314,7 @@ const MapNotice: React.FC<{
   children: React.ReactNode;
 }> = ({ icon, title, children }) => (
   <div className="absolute inset-0 z-[300] flex items-center justify-center bg-slate-100 p-6">
-    <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-lg">
+    <div className="max-w-sm rounded-2xl border border-slate-200 bg-surface p-5 text-center shadow-lg">
       <span className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
         {icon}
       </span>
@@ -385,11 +392,14 @@ export const PlacesMap = forwardRef<PlacesMapHandle, PlacesMapProps>(function Pl
   );
 
   const groups = useMemo(() => groupPlaces(places, zoom), [places, zoom]);
+  const theme = useThemeValue();
+  const isDark = theme === 'dark';
   const style = MAP_TYPES[mapType] ?? MAP_TYPES.roadmap;
+  const backdrop = isDark ? style.backdropDark : style.backdrop;
 
   if (!API_KEY) {
     return (
-      <div className="absolute inset-0" style={{ backgroundColor: style.backdrop }}>
+      <div className="absolute inset-0" style={{ backgroundColor: backdrop }}>
         <MapNotice icon={<MapPin className="h-5 w-5" />} title="Add a Google Maps API key">
           Set <code className="font-mono text-[11px]">VITE_GOOGLE_MAPS_API_KEY</code> in your{' '}
           <code className="font-mono text-[11px]">.env</code> and restart the dev server. For
@@ -412,9 +422,13 @@ export const PlacesMap = forwardRef<PlacesMapHandle, PlacesMapProps>(function Pl
     <MapErrorBoundary>
       <APIProvider apiKey={API_KEY} libraries={['marker']}>
         <GoogleMap
+          // Google fixes the colour scheme when it builds the map, so the key
+          // forces a fresh instance rather than a map stuck in the old theme.
+          key={theme}
           mapId={MAP_ID}
+          colorScheme={isDark ? ColorScheme.DARK : ColorScheme.LIGHT}
           className="absolute inset-0 h-full w-full"
-          style={{ backgroundColor: style.backdrop }}
+          style={{ backgroundColor: backdrop }}
           defaultCenter={{ lat: 20, lng: 6 }}
           defaultZoom={2}
           minZoom={1}

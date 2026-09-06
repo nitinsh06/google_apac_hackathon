@@ -7,6 +7,15 @@ import firebaseConfig from './firebase-applet-config.json';
 import { verifyFirebaseIdToken } from './src/server/firebaseAuth.ts';
 import { readIntegrationPreferences } from './src/server/firestoreRest.ts';
 import { assertPublicHost } from './src/server/netGuard.ts';
+import { extractEntryInsight, summariseMonth } from './src/server/analyticsExtract.ts';
+import type { ExtractionSource, GenerateJson } from './src/server/analyticsExtract.ts';
+import {
+  ANALYTICS_SCHEMA_VERSION,
+  clampNumber,
+  clampText,
+  monthKey,
+} from './src/lib/analyticsTypes.ts';
+import type { EntryInsight } from './src/lib/analyticsTypes.ts';
 import {
   buildEmailPayload,
   buildWebhookPayload,
@@ -27,12 +36,21 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-// Standard Fallback Ladder
+// Standard Fallback Ladder — conversation quality first.
 const FALLBACK_MODELS = [
   'gemini-3.6-flash',
   'gemini-3.1-flash-lite',
   'gemini-flash-latest',
   'gemini-3.7-flash',
+];
+
+// Extraction is a mechanical classification over text the user already wrote,
+// not a conversation, so it runs the cheap end of the ladder first and only
+// climbs if the lite models are unavailable.
+const EXTRACTION_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3.6-flash',
 ];
 
 // 1. Top-Level Request Deserialization (Ordering Guarantee)
@@ -51,17 +69,27 @@ function getGeminiClient(): GoogleGenAI {
 // Resilient Model Fallback Helper
 async function generateContentWithFallback(
   contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>,
-  systemInstruction?: string
+  systemInstruction?: string,
+  options?: { models?: string[]; responseSchema?: Record<string, unknown> }
 ): Promise<{ text: string; modelUsed: string }> {
   const ai = getGeminiClient();
   let lastError: any = null;
 
-  for (const model of FALLBACK_MODELS) {
+  for (const model of options?.models ?? FALLBACK_MODELS) {
     try {
       const response = await ai.models.generateContent({
         model,
         contents,
-        config: systemInstruction ? { systemInstruction } : undefined,
+        config: {
+          ...(systemInstruction ? { systemInstruction } : {}),
+          ...(options?.responseSchema
+            ? {
+                responseMimeType: 'application/json',
+                responseSchema: options.responseSchema,
+                temperature: 0.2,
+              }
+            : {}),
+        },
       });
 
       if (response && response.text) {
@@ -208,6 +236,158 @@ app.post('/api/gemini/suggest-title', async (req, res) => {
       error: error?.message || 'Failed to suggest title.',
     });
   }
+});
+
+// ─── Analytics extraction ──────────────────────────────────────────────────
+//
+// Turns reflections into the structured readings the analytics tab charts.
+// Authenticated per call, rate limited per user, and run on the cheap end of
+// the model ladder — this is classification, not conversation.
+//
+// The endpoint returns the reading rather than writing it: Firestore writes in
+// this app are made by the browser with the user's own token, so the server
+// never needs a service account and the security rules stay the only authority
+// on what may land in the document.
+
+const ANALYTICS_RATE_WINDOW_MS = 60_000;
+const ANALYTICS_RATE_MAX = 20;
+const analyticsLimiter = new Map<string, { count: number; resetAt: number }>();
+
+function overAnalyticsLimit(uid: string): boolean {
+  const now = Date.now();
+  const bucket = analyticsLimiter.get(uid);
+  if (!bucket || bucket.resetAt <= now) {
+    analyticsLimiter.set(uid, { count: 1, resetAt: now + ANALYTICS_RATE_WINDOW_MS });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > ANALYTICS_RATE_MAX;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [uid, bucket] of analyticsLimiter) {
+    if (bucket.resetAt <= now) analyticsLimiter.delete(uid);
+  }
+}, ANALYTICS_RATE_WINDOW_MS).unref?.();
+
+/** Verifies the caller and applies the analytics budget. Returns null on failure. */
+async function requireAnalyticsCaller(
+  req: express.Request,
+  res: express.Response
+): Promise<string | null> {
+  const header = req.get('authorization') ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) {
+    res.status(401).json({ error: 'Missing Firebase ID token.' });
+    return null;
+  }
+
+  let uid: string;
+  try {
+    uid = (await verifyFirebaseIdToken(token, firebaseConfig.projectId)).uid;
+  } catch (error: any) {
+    res.status(401).json({ error: error?.message || 'Could not verify your session.' });
+    return null;
+  }
+
+  if (overAnalyticsLimit(uid)) {
+    res.status(429).json({ error: 'Too many analysis requests. Try again shortly.' });
+    return null;
+  }
+  return uid;
+}
+
+const generateAnalyticsJson: GenerateJson = ({ systemInstruction, userText, responseSchema }) =>
+  generateContentWithFallback(
+    [{ role: 'user', parts: [{ text: userText }] }],
+    systemInstruction,
+    { models: EXTRACTION_MODELS, responseSchema }
+  );
+
+/** Narrows the request body to the fields extraction is allowed to read. */
+function toExtractionSource(raw: unknown): ExtractionSource | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const record = raw as Record<string, unknown>;
+
+  const id = clampText(record.id, 200);
+  const text = typeof record.text === 'string' ? record.text.trim() : '';
+  if (!id || text.length < 40) return null;
+
+  return {
+    id,
+    title: clampText(record.title, 120),
+    category: clampText(record.category, 40),
+    createdAt: clampText(record.createdAt, 40) || new Date().toISOString(),
+    text,
+    turnCount: clampNumber(record.turnCount, 0, 500, 1),
+  };
+}
+
+app.post('/api/analytics/extract', async (req, res) => {
+  const uid = await requireAnalyticsCaller(req, res);
+  if (!uid) return;
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const source = toExtractionSource(body.entry);
+  if (!source) {
+    return res.status(400).json({ error: 'Reflection is missing or too short to analyse.' });
+  }
+
+  try {
+    const insight = await extractEntryInsight(source, generateAnalyticsJson);
+    return res.json({ success: true, insight });
+  } catch (error: any) {
+    // The upstream message can carry provider detail; log it, return a generic.
+    console.error('Analytics extraction failed:', error?.message || error);
+    return res.status(502).json({ error: 'Could not analyse this reflection right now.' });
+  }
+});
+
+/** Re-validates stored readings before they are summarised. */
+function toInsightList(raw: unknown): EntryInsight[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item): item is EntryInsight => {
+      if (!item || typeof item !== 'object') return false;
+      const record = item as Record<string, unknown>;
+      return (
+        typeof record.entryId === 'string' &&
+        typeof record.entryCreatedAt === 'string' &&
+        Array.isArray(record.domains)
+      );
+    })
+    .slice(0, 200);
+}
+
+app.post('/api/analytics/monthly', async (req, res) => {
+  const uid = await requireAnalyticsCaller(req, res);
+  if (!uid) return;
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const month = clampText(body.month, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    return res.status(400).json({ error: 'Month must be formatted YYYY-MM.' });
+  }
+
+  const insights = toInsightList(body.insights).filter(
+    (insight) => monthKey(insight.entryCreatedAt) === month
+  );
+  if (insights.length === 0) {
+    return res.status(400).json({ error: 'That month has no analysed reflections yet.' });
+  }
+
+  try {
+    const summary = await summariseMonth({ month, insights }, generateAnalyticsJson);
+    return res.json({ success: true, summary });
+  } catch (error: any) {
+    console.error('Monthly summary failed:', error?.message || error);
+    return res.status(502).json({ error: 'Could not write that monthly summary right now.' });
+  }
+});
+
+app.get('/api/analytics/schema', (_req, res) => {
+  res.json({ schemaVersion: ANALYTICS_SCHEMA_VERSION, models: EXTRACTION_MODELS });
 });
 
 // ─── Webhook dispatch ──────────────────────────────────────────────────────

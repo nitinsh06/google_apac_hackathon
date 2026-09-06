@@ -34,7 +34,6 @@ import type {
 
 interface IntegrationsPanelProps {
   userId: string;
-  isGuest: boolean;
 }
 
 const PROVIDERS: Array<{
@@ -136,9 +135,9 @@ function filterSummary(webhook: WebhookConfig): string | null {
   return parts.length ? parts.join(' · ') : null;
 }
 
-export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, isGuest }) => {
+export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId }) => {
   const [webhooks, setWebhooks] = useState<WebhookConfig[]>([]);
-  const [loading, setLoading] = useState(!isGuest);
+  const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -147,7 +146,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isGuest || !userId) {
+    if (!userId) {
       setLoading(false);
       return;
     }
@@ -160,7 +159,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
       () => setLoading(false)
     );
     return () => unsubscribe();
-  }, [userId, isGuest]);
+  }, [userId]);
 
   useEffect(() => {
     if (!notice) return;
@@ -269,31 +268,9 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
     }
   };
 
-  if (isGuest) {
-    return (
-      <section className="rounded-xl border border-slate-200 bg-white shadow-xs">
-        <header className="border-b border-slate-200 px-4 py-3 sm:px-5">
-          <h3 className="text-sm font-bold tracking-tight text-slate-900">Webhooks</h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
-            Send your reflections to Discord, Slack, your inbox, or any endpoint of your own, as you write them.
-          </p>
-        </header>
-        <div className="px-4 py-8 text-center sm:px-5">
-          <span className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-            <Webhook className="h-5 w-5" />
-          </span>
-          <p className="text-sm font-semibold text-slate-900">Sign in to add a webhook</p>
-          <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-600">
-            Endpoints are stored against your account, so the demo cannot keep them.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <>
-      <section className="rounded-xl border border-slate-200 bg-white shadow-xs">
+      <section className="rounded-xl border border-slate-200 bg-surface shadow-xs">
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <h3 className="text-sm font-bold tracking-tight text-slate-900">Webhooks</h3>
@@ -308,7 +285,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                 setDraft(emptyDraft());
                 setFormError(null);
               }}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-fg shadow-sm transition-colors hover:bg-accent-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               Add
@@ -354,7 +331,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                 setDraft(emptyDraft());
                 setFormError(null);
               }}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg shadow-sm transition-colors hover:bg-accent-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               Add endpoint
@@ -494,11 +471,11 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                         onClick={() => handleToggle(webhook)}
                         disabled={saving}
                         className={`ml-1 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors disabled:opacity-50 cursor-pointer ${
-                          webhook.enabled ? 'bg-blue-600' : 'bg-slate-300'
+                          webhook.enabled ? 'bg-accent' : 'bg-slate-300'
                         }`}
                       >
                         <span
-                          className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                          className={`h-4 w-4 rounded-full bg-surface shadow-sm transition-transform ${
                             webhook.enabled ? 'translate-x-4' : 'translate-x-0'
                           }`}
                         />
@@ -516,7 +493,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteId(null)}
-                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+                          className="rounded-lg border border-slate-200 bg-surface px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
                         >
                           Keep
                         </button>
@@ -524,7 +501,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                           type="button"
                           onClick={() => handleDelete(webhook.id)}
                           disabled={saving}
-                          className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
+                          className="rounded-lg bg-danger px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-danger-strong disabled:opacity-60 cursor-pointer"
                         >
                           Remove
                         </button>
@@ -565,8 +542,8 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                     key={provider.id}
                     className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
                       draft.provider === provider.id
-                        ? 'border-blue-500 bg-white text-blue-700 ring-1 ring-blue-500/30'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                        ? 'border-blue-500 bg-surface text-blue-700 ring-1 ring-blue-500/30'
+                        : 'border-slate-200 bg-surface text-slate-700 hover:border-slate-300'
                     }`}
                   >
                     <input
@@ -595,7 +572,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                   onChange={(event) => setDraft({ ...draft, label: event.target.value })}
                   placeholder="#journal in my server"
                   maxLength={60}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-surface px-3 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </label>
 
@@ -620,7 +597,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                   placeholder={providerMeta(draft.provider).placeholder}
                   autoComplete="off"
                   spellCheck={false}
-                  className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 font-mono text-[11px] text-slate-900 placeholder:font-sans placeholder:text-slate-500 focus:outline-none focus:ring-2 ${
+                  className={`mt-1 w-full rounded-lg border bg-surface px-3 py-2 font-mono text-[11px] text-slate-900 placeholder:font-sans placeholder:text-slate-500 focus:outline-none focus:ring-2 ${
                     urlProblem
                       ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20'
                       : urlWarning
@@ -650,11 +627,11 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
             )}
 
             {draft.provider === 'generic' && (
-              <details className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <details className="mt-3 rounded-lg border border-slate-200 bg-surface px-3 py-2">
                 <summary className="cursor-pointer text-[11px] font-semibold text-slate-900">
                   What your endpoint will receive
                 </summary>
-                <pre className="thin-scroll mt-2 overflow-x-auto rounded bg-slate-900 p-3 font-mono text-[10px] leading-relaxed text-slate-100">{`POST  content-type: application/json
+                <pre className="thin-scroll mt-2 overflow-x-auto rounded bg-inverse p-3 font-mono text-[10px] leading-relaxed text-inverse-fg">{`POST  content-type: application/json
 
 {
   "event": "reflection.created",
@@ -693,8 +670,8 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                       key={event.id}
                       className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition-colors ${
                         checked
-                          ? 'border-blue-500 bg-white ring-1 ring-blue-500/30'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
+                          ? 'border-blue-500 bg-surface ring-1 ring-blue-500/30'
+                          : 'border-slate-200 bg-surface hover:border-slate-300'
                       }`}
                     >
                       <input
@@ -725,7 +702,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
             </fieldset>
 
             {/* Which kinds of entry qualify. Nothing selected means every kind. */}
-            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+            <div className="mt-3 rounded-lg border border-slate-200 bg-surface p-3">
               <p className="text-[11px] font-semibold text-slate-900">Only for these entries</p>
               <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600">
                 Leave a row untouched to include everything in it.
@@ -742,7 +719,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                         className={`cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                           checked
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            : 'border-slate-200 bg-surface text-slate-700 hover:border-slate-300'
                         }`}
                       >
                         <input
@@ -776,7 +753,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                         className={`cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                           checked
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            : 'border-slate-200 bg-surface text-slate-700 hover:border-slate-300'
                         }`}
                       >
                         <input
@@ -808,7 +785,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                       className={`cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                         draft.placement === option.id
                           ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                          : 'border-slate-200 bg-surface text-slate-700 hover:border-slate-300'
                       }`}
                     >
                       <input
@@ -839,14 +816,14 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
                   setDraft(null);
                   setFormError(null);
                 }}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+                className="rounded-lg border border-slate-200 bg-surface px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg shadow-sm transition-colors hover:bg-accent-strong disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 cursor-pointer"
               >
                 {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {draft.id ? 'Save changes' : 'Add endpoint'}
@@ -856,7 +833,7 @@ export const IntegrationsPanel: React.FC<IntegrationsPanelProps> = ({ userId, is
         )}
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white shadow-xs">
+      <section className="rounded-xl border border-slate-200 bg-surface shadow-xs">
         <header className="border-b border-slate-200 px-4 py-3 sm:px-5">
           <h3 className="text-sm font-bold tracking-tight text-slate-900">How delivery works</h3>
         </header>
