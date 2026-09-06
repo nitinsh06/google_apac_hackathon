@@ -73,14 +73,22 @@ export interface RarityMeta {
   label: string;
   /** Foil sweep for the card frame. */
   hues: [number, number, number];
+  /**
+   * Frame saturation, 0-100. Hue alone cannot carry rarity — common and rare
+   * are both cool, so a common card reads as brushed steel and the tiers above
+   * it get progressively more colour in the same family.
+   */
+  sat: number;
+  /** 1-5. Drives shadow weight, foil strength and the resting shimmer. */
+  tier: number;
 }
 
 export const RARITIES: Record<Rarity, RarityMeta> = {
-  common: { id: 'common', label: 'Common', hues: [212, 220, 205] },
-  uncommon: { id: 'uncommon', label: 'Uncommon', hues: [152, 168, 140] },
-  rare: { id: 'rare', label: 'Rare', hues: [205, 225, 190] },
-  epic: { id: 'epic', label: 'Epic', hues: [268, 292, 250] },
-  legendary: { id: 'legendary', label: 'Legendary', hues: [38, 22, 48] },
+  common: { id: 'common', label: 'Common', hues: [214, 222, 206], sat: 18, tier: 1 },
+  uncommon: { id: 'uncommon', label: 'Uncommon', hues: [150, 166, 136], sat: 46, tier: 2 },
+  rare: { id: 'rare', label: 'Rare', hues: [204, 228, 192], sat: 74, tier: 3 },
+  epic: { id: 'epic', label: 'Epic', hues: [268, 294, 248], sat: 80, tier: 4 },
+  legendary: { id: 'legendary', label: 'Legendary', hues: [40, 24, 50], sat: 88, tier: 5 },
 };
 
 export function levelFor(score: number): number {

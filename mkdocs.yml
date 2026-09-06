@@ -1,0 +1,100 @@
+site_name: ReflectAI
+site_description: A private, location-aware reflection journal built on Gemini, Firebase and Google Maps Platform.
+site_url: https://nitinsh06.github.io/google_apac_hackathon/
+repo_url: https://github.com/nitinsh06/google_apac_hackathon
+repo_name: nitinsh06/google_apac_hackathon
+edit_uri: edit/main/docs/
+copyright: ReflectAI — built for the Google APAC hackathon
+
+theme:
+  name: material
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+  palette:
+    # The toggle order matters: the first entry is what a first-time visitor sees.
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Follow system theme
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Setup from scratch: setup.md
+      - Google services: services.md
+  - Reference:
+      - Data model and rules: data-model.md
+      - The journal card: journal-card.md
+      - Functional walkthrough: walkthrough.md
+  - Operations:
+      - Deploying to Cloud Run: deploy.md
+      - Threat model: threat-model.md
+  - Story: story.md
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Link to this section
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+
+# Fail the build on a bad internal link rather than publishing one.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

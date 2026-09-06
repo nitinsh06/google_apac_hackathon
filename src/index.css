@@ -536,50 +536,104 @@
 
 /* ─── Journal card ──────────────────────────────────────────────────────────
    A trinket, so it is built like one: fixed portrait proportions, a foil frame
-   tinted by rarity, and a glare that tracks the pointer. Everything animated
-   here is decoration and is dropped entirely under reduced-motion.
+   whose colour AND saturation are set by rarity, and a glare that tracks the
+   pointer. Hue alone could not carry rarity — common and rare are both cool —
+   so `--sat` runs from brushed steel to full gold and `--tier` escalates the
+   shadow, the foil and, at the top two tiers, a slow resting shimmer.
+
+   Every internal size is a multiple of `--u`, one design pixel: the card's own
+   rendered width over its 320px design width. That makes the card a single
+   fluid object — it shrinks to fit a narrow phone or a compact slot without a
+   breakpoint, and its type shrinks with it instead of overflowing.
+
+   Everything animated here is decoration and is dropped under reduced-motion.
    ─────────────────────────────────────────────────────────────────────────── */
 
 .jm-card {
-  --tilt-x: 0deg;
-  --tilt-y: 0deg;
-  --foil-x: 50%;
-  --foil-y: 50%;
-  --h1: 212;
-  --h2: 220;
-  --h3: 205;
-  --card-scale: 1;
+  --h1: 214;
+  --h2: 222;
+  --h3: 206;
+  --sat: 18;
+  --tier: 1;
+  --card-max: 320px;
 
-  width: calc(320px * var(--card-scale));
+  /* Ink and accents follow rarity too, but off a floor — a common card is
+     restrained, never colourless. */
+  --accent-sat: calc(22% + var(--sat) * 0.5%);
+
+  width: min(var(--card-max), 100%);
+  container-type: inline-size;
   perspective: 1100px;
   flex: none;
 }
 
 .jm-card__frame {
+  /* One design pixel. CSS cannot divide a length by a length, so the scale is
+     carried as a unit — every size below is a multiple of it — rather than as a
+     unitless ratio. At the 320px design width it is exactly 1px. */
+  --u: calc(100cqi / 320);
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --lift: 1;
+  --foil-x: 50%;
+  --foil-y: 50%;
+
   position: relative;
   aspect-ratio: 5 / 7;
-  border-radius: calc(20px * var(--card-scale));
-  padding: calc(3px * var(--card-scale));
+  border-radius: calc(20 * var(--u));
+  padding: calc(3 * var(--u));
   overflow: hidden;
-  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) scale(var(--lift));
   transform-style: preserve-3d;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   background: linear-gradient(
     145deg,
-    hsl(var(--h1) 82% 62%),
-    hsl(var(--h2) 74% 48%) 38%,
-    hsl(var(--h3) 68% 38%) 62%,
-    hsl(var(--h1) 80% 58%)
+    hsl(var(--h1) calc(var(--sat) * 1%) 62%),
+    hsl(var(--h2) calc(var(--sat) * 0.9%) 48%) 38%,
+    hsl(var(--h3) calc(var(--sat) * 0.82%) 38%) 62%,
+    hsl(var(--h1) calc(var(--sat) * 0.97%) 58%)
   );
-  box-shadow: 0 18px 40px -18px hsl(var(--h2) 60% 20% / 0.75),
+  box-shadow: 0 calc(12px + var(--tier) * 3px) calc(28px + var(--tier) * 6px)
+      calc(-14px - var(--tier) * 2px) hsl(var(--h2) 60% 20% / calc(0.5 + var(--tier) * 0.06)),
     0 2px 6px -2px rgb(0 0 0 / 0.35);
 }
 
 .jm-card[data-active] .jm-card__frame {
-  transition: transform 0.08s linear;
-  box-shadow: 0 28px 60px -22px hsl(var(--h2) 60% 20% / 0.85),
+  --lift: 1.02;
+  transition: transform 0.08s linear, box-shadow 0.3s ease;
+  box-shadow: 0 calc(22px + var(--tier) * 4px) calc(46px + var(--tier) * 8px)
+      calc(-18px - var(--tier) * 2px) hsl(var(--h2) 60% 20% / calc(0.6 + var(--tier) * 0.06)),
     0 2px 8px -2px rgb(0 0 0 / 0.4);
+}
+
+/* Epic and legendary catch the light on their own, slowly, so a rare card is
+   recognisable across a room and a common one is not pretending to be one. */
+.jm-card[data-tier='4'] .jm-card__frame::after,
+.jm-card[data-tier='5'] .jm-card__frame::after {
+  content: '';
+  position: absolute;
+  inset: -30% -60%;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 42%,
+    hsl(var(--h1) 100% 82% / 0.16) 50%,
+    transparent 58%
+  );
+  mix-blend-mode: overlay;
+  animation: jm-card-shimmer 7s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+@keyframes jm-card-shimmer {
+  0%,
+  62% {
+    transform: translateX(-58%);
+  }
+  100% {
+    transform: translateX(58%);
+  }
 }
 
 .jm-card__inner {
@@ -588,9 +642,9 @@
   display: flex;
   height: 100%;
   flex-direction: column;
-  gap: calc(10px * var(--card-scale));
-  border-radius: calc(17px * var(--card-scale));
-  padding: calc(16px * var(--card-scale));
+  gap: calc(10 * var(--u));
+  border-radius: calc(17 * var(--u));
+  padding: calc(16 * var(--u));
   background: linear-gradient(170deg, #10131c, #0a0c12 55%, #0d1018);
   color: #f4f6fb;
 }
@@ -602,24 +656,26 @@
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  border-radius: calc(20px * var(--card-scale));
+  border-radius: calc(20 * var(--u));
 }
 
 .jm-card__foil {
   opacity: 0;
   transition: opacity 0.35s ease;
+  /* The foil follows rarity too. A fully saturated sweep on a common card
+     would undo the restraint the frame just established. */
   background: repeating-linear-gradient(
     115deg,
-    hsl(var(--h1) 100% 70% / 0.5) 0%,
-    hsl(var(--h2) 100% 72% / 0.35) 8%,
-    hsl(var(--h3) 100% 68% / 0.45) 16%,
+    hsl(var(--h1) calc(var(--sat) * 1.1%) 70% / 0.5) 0%,
+    hsl(var(--h2) calc(var(--sat) * 1.1%) 72% / 0.35) 8%,
+    hsl(var(--h3) calc(var(--sat) * 1.1%) 68% / 0.45) 16%,
     transparent 26%
   );
   mix-blend-mode: color-dodge;
 }
 
 .jm-card[data-active] .jm-card__foil {
-  opacity: 0.5;
+  opacity: calc(0.14 + var(--tier) * 0.09);
 }
 
 .jm-card__glare {
@@ -637,38 +693,42 @@
   opacity: 1;
 }
 
-.jm-card__eyebrow {
-  font-size: calc(9px * var(--card-scale));
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: hsl(var(--h1) 60% 76%);
+.jm-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(10 * var(--u));
 }
 
 .jm-card__title {
-  margin-top: calc(3px * var(--card-scale));
-  font-size: calc(20px * var(--card-scale));
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: calc(21 * var(--u));
   font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  letter-spacing: -0.022em;
+  line-height: 1.12;
+  text-wrap: balance;
   color: #ffffff;
 }
 
 .jm-card__level {
   display: flex;
-  height: calc(42px * var(--card-scale));
-  width: calc(42px * var(--card-scale));
+  height: calc(42 * var(--u));
+  width: calc(42 * var(--u));
   flex: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: calc(12px * var(--card-scale));
-  border: 1px solid hsl(var(--h1) 70% 60% / 0.55);
-  background: hsl(var(--h2) 50% 16% / 0.9);
+  border-radius: calc(12 * var(--u));
+  border: 1px solid hsl(var(--h1) var(--accent-sat) 62% / 0.6);
+  background: hsl(var(--h2) calc(var(--sat) * 0.5%) 15% / 0.92);
 }
 
 .jm-card__level-num {
-  font-size: calc(19px * var(--card-scale));
+  font-size: calc(19 * var(--u));
   font-weight: 800;
   line-height: 1;
   color: #ffffff;
@@ -676,40 +736,53 @@
 }
 
 .jm-card__level-word {
-  font-size: calc(7px * var(--card-scale));
+  font-size: calc(7.5 * var(--u));
   font-weight: 700;
   letter-spacing: 0.14em;
-  color: hsl(var(--h1) 60% 74%);
+  color: hsl(var(--h1) var(--accent-sat) 78%);
 }
 
 .jm-card__art {
   position: relative;
   flex: 1 1 auto;
-  min-height: calc(120px * var(--card-scale));
+  min-height: calc(118 * var(--u));
   overflow: hidden;
-  border-radius: calc(12px * var(--card-scale));
-  border: 1px solid hsl(var(--h2) 45% 30% / 0.7);
+  border-radius: calc(12 * var(--u));
+  border: 1px solid hsl(var(--h2) calc(var(--sat) * 0.55%) 30% / 0.7);
   background: radial-gradient(circle at 50% 45%, #161b28, #080a10 72%);
+}
+
+/* The set mark, where a printed card carries it: inside the art window, not
+   as a kicker stacked above the title. */
+.jm-card__set {
+  position: absolute;
+  bottom: calc(7 * var(--u));
+  left: calc(9 * var(--u));
+  font-size: calc(8 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: hsl(var(--h1) var(--accent-sat) 74% / 0.85);
 }
 
 .jm-card__rarity {
   position: absolute;
-  bottom: calc(7px * var(--card-scale));
-  right: calc(8px * var(--card-scale));
+  bottom: calc(7 * var(--u));
+  right: calc(8 * var(--u));
   border-radius: 999px;
-  border: 1px solid hsl(var(--h1) 70% 62% / 0.5);
+  border: 1px solid hsl(var(--h1) var(--accent-sat) 64% / 0.55);
   background: rgb(0 0 0 / 0.55);
-  padding: calc(2px * var(--card-scale)) calc(7px * var(--card-scale));
-  font-size: calc(8px * var(--card-scale));
+  padding: calc(2 * var(--u)) calc(7 * var(--u));
+  font-size: calc(8 * var(--u));
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: hsl(var(--h1) 70% 80%);
+  color: hsl(var(--h1) calc(var(--accent-sat) + 14%) 82%);
 }
 
 .jm-card__bar {
   display: flex;
-  height: calc(5px * var(--card-scale));
+  height: calc(5 * var(--u));
   overflow: hidden;
   border-radius: 999px;
   background: rgb(255 255 255 / 0.08);
@@ -720,51 +793,71 @@
   height: 100%;
 }
 
+/* Two adjacent domains can land on neighbouring hues (health and money are
+   both green). An inset notch separates them without a gap, which would push
+   the last segment past 100%. */
+.jm-card__bar span + span {
+  box-shadow: inset calc(1.5 * var(--u)) 0 0 #0b0e15;
+}
+
+/* Everything outside the three named domains, so the bar always reads as a
+   whole and the legend below it accounts for the picture. */
+.jm-card__bar-rest {
+  background: rgb(255 255 255 / 0.16);
+}
+
 .jm-card__domain-labels {
-  margin-top: calc(6px * var(--card-scale));
+  margin-top: calc(7 * var(--u));
   display: flex;
   flex-wrap: wrap;
-  gap: calc(9px * var(--card-scale));
-  font-size: calc(9px * var(--card-scale));
+  gap: calc(4 * var(--u)) calc(10 * var(--u));
+  font-size: calc(9.5 * var(--u));
   font-weight: 600;
-  color: #b9c2d4;
+  color: #c3cbdb;
 }
 
 .jm-card__domain-labels span {
   display: inline-flex;
   align-items: center;
-  gap: calc(4px * var(--card-scale));
+  gap: calc(4 * var(--u));
 }
 
 .jm-card__domain-labels i {
   display: block;
-  height: calc(5px * var(--card-scale));
-  width: calc(5px * var(--card-scale));
+  height: calc(5 * var(--u));
+  width: calc(5 * var(--u));
   border-radius: 999px;
+}
+
+.jm-card__domain-labels b {
+  font-weight: 700;
+  color: #949eb2;
+  font-variant-numeric: tabular-nums;
 }
 
 .jm-card__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: calc(4px * var(--card-scale));
-  border-radius: calc(10px * var(--card-scale));
+  gap: calc(4 * var(--u));
+  border-radius: calc(10 * var(--u));
   border: 1px solid rgb(255 255 255 / 0.08);
   background: rgb(255 255 255 / 0.04);
-  padding: calc(8px * var(--card-scale)) calc(6px * var(--card-scale));
+  padding: calc(9 * var(--u)) calc(6 * var(--u));
   text-align: center;
 }
 
 .jm-card__stats dt {
-  font-size: calc(7.5px * var(--card-scale));
+  font-size: calc(8 * var(--u));
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #8d97ab;
+  line-height: 1.2;
+  color: #9aa4b8;
 }
 
 .jm-card__stats dd {
-  margin-top: calc(2px * var(--card-scale));
-  font-size: calc(15px * var(--card-scale));
+  margin-top: calc(3 * var(--u));
+  font-size: calc(16 * var(--u));
   font-weight: 800;
   color: #ffffff;
   font-variant-numeric: tabular-nums;
@@ -773,11 +866,11 @@
 .jm-card__foot {
   display: flex;
   flex-direction: column;
-  gap: calc(5px * var(--card-scale));
+  gap: calc(5 * var(--u));
 }
 
 .jm-card__xp {
-  height: calc(3px * var(--card-scale));
+  height: calc(3 * var(--u));
   overflow: hidden;
   border-radius: 999px;
   background: rgb(255 255 255 / 0.1);
@@ -787,34 +880,78 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, hsl(var(--h1) 85% 62%), hsl(var(--h2) 90% 70%));
+  background: linear-gradient(
+    90deg,
+    hsl(var(--h1) calc(var(--accent-sat) + 18%) 62%),
+    hsl(var(--h2) calc(var(--accent-sat) + 22%) 72%)
+  );
 }
 
 .jm-card__meta {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: calc(8px * var(--card-scale));
-  font-size: calc(10px * var(--card-scale));
+  gap: calc(8 * var(--u));
+  font-size: calc(10.5 * var(--u));
   font-weight: 700;
   color: #e3e8f2;
 }
 
 .jm-card__score {
   flex: none;
-  color: hsl(var(--h1) 65% 74%);
+  color: hsl(var(--h1) calc(var(--accent-sat) + 14%) 78%);
   font-variant-numeric: tabular-nums;
 }
 
 .jm-card__since {
-  font-size: calc(8.5px * var(--card-scale));
-  color: #7d879b;
+  font-size: calc(9 * var(--u));
+  color: #8b96ab;
+}
+
+/* Compact drops the fine print rather than shrinking it under the legibility
+   floor: the bar keeps the domain picture, the legend and the date line go. */
+.jm-card[data-compact] .jm-card__domain-labels,
+.jm-card[data-compact] .jm-card__since {
+  display: none;
+}
+
+.jm-card[data-compact] .jm-card__stats dt {
+  font-size: calc(9 * var(--u));
+  letter-spacing: 0;
+}
+
+/* The reveal, used only where the card is the thing you came to see: the
+   public share page. One authored moment, not an entrance on every mount. */
+.jm-card--reveal {
+  animation: jm-card-reveal 0.72s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes jm-card-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.965);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .jm-card--reveal {
+    animation: none;
+  }
+
   .jm-card__frame {
     transform: none !important;
     transition: none;
+  }
+
+  /* A frozen diagonal band reads as an artefact, not as foil. */
+  .jm-card__frame::after {
+    display: none;
   }
 
   .jm-card__foil,

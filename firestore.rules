@@ -126,7 +126,10 @@ service cloud.firestore {
     // excerpt or a place name into a world-readable document. Adding a field
     // here means deciding it is safe to publish.
     match /publicCards/{slug} {
-      allow read: if true;
+      // `get`, not `read`. `read` also grants `list`, which would let anyone
+      // enumerate every published card and make the unguessable slug pointless
+      // — the link is the access control. The app only ever fetches by slug.
+      allow get: if true;
 
       allow create: if isOwner(request.resource.data.ownerId)
         && validCard(slug);

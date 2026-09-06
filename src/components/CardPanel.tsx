@@ -40,6 +40,7 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
   const [anonymous, setAnonymous] = useState(false);
   const [busy, setBusy] = useState<'publish' | 'rotate' | 'remove' | null>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,6 +70,14 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
 
   const breakdown = useMemo(() => scoreBreakdown(card.stats), [card.stats]);
   const { toNext } = useMemo(() => levelProgress(card.score), [card.score]);
+  const empty = card.score === 0;
+
+  // Backing out of the confirm step should not leave it armed for later.
+  useEffect(() => {
+    if (!confirmRemove) return;
+    const timer = window.setTimeout(() => setConfirmRemove(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [confirmRemove]);
 
   const run = async (
     mode: 'publish' | 'rotate' | 'remove',
@@ -78,8 +87,16 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
     setError(null);
     try {
       await action();
+      setConfirmRemove(false);
     } catch (err: any) {
-      setError(err?.message || 'That did not work. Try again.');
+      // `permission-denied` on this collection means one thing in practice:
+      // the card rules have never been deployed. Say that rather than passing
+      // Firestore's own wording through, which names no recovery.
+      setError(
+        err?.code === 'permission-denied'
+          ? 'The database refused this. The card rules in firestore.rules have not been deployed to this project yet — run `firebase deploy --only firestore:rules`.'
+          : err?.message || 'That did not work. Try again.'
+      );
     } finally {
       setBusy(null);
     }
@@ -113,25 +130,47 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
               How this score is built
             </p>
-            <dl className="mt-2.5 divide-y divide-slate-200">
-              {breakdown.map((line) => (
-                <div key={line.label} className="flex items-baseline justify-between gap-3 py-2">
-                  <dt className="text-xs text-slate-600">
-                    {line.label}
-                    <span className="ml-1.5 tabular-nums text-slate-400">×{line.count}</span>
-                  </dt>
-                  <dd className="text-xs font-bold tabular-nums text-slate-800">
-                    {line.points.toLocaleString()}
-                  </dd>
+
+            {empty ? (
+              <p className="mt-2.5 rounded-lg border border-dashed border-slate-300 px-3.5 py-4 text-xs leading-relaxed text-slate-600">
+                Nothing to weigh yet. Your first reflection starts the card — and writing from a new
+                place, in a new month, or changing your mind about something all count for more than
+                simply writing again.
+              </p>
+            ) : (
+              <>
+                {/* Each line carries its own share of the total, so the number is
+                    a composition you can see rather than a column to add up. */}
+                <dl className="mt-2.5 space-y-2.5">
+                  {breakdown.map((line) => (
+                    <div key={line.label}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <dt className="text-xs text-slate-600">
+                          {line.label}
+                          <span className="ml-1.5 tabular-nums text-slate-400">×{line.count}</span>
+                        </dt>
+                        <dd className="text-xs font-bold tabular-nums text-slate-800">
+                          {line.points.toLocaleString()}
+                        </dd>
+                      </div>
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-slate-200">
+                        <span
+                          className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
+                          style={{ width: `${(line.points / card.score) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </dl>
+
+                <div className="mt-3.5 flex items-baseline justify-between gap-3 border-t border-slate-200 pt-2.5">
+                  <p className="text-xs font-bold text-slate-900">Total</p>
+                  <p className="text-sm font-bold tabular-nums text-accent">
+                    {card.score.toLocaleString()}
+                  </p>
                 </div>
-              ))}
-              <div className="flex items-baseline justify-between gap-3 py-2">
-                <dt className="text-xs font-bold text-slate-900">Total</dt>
-                <dd className="text-sm font-bold tabular-nums text-blue-700">
-                  {card.score.toLocaleString()}
-                </dd>
-              </div>
-            </dl>
+              </>
+            )}
 
             <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
               {toNext === null
@@ -154,7 +193,10 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
 
         <div className="space-y-4 px-4 py-4 sm:px-5">
           {error && (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            <p
+              role="alert"
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"
+            >
               {error}
             </p>
           )}
@@ -189,7 +231,7 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
               type="checkbox"
               checked={anonymous}
               onChange={(event) => setAnonymous(event.target.checked)}
-              className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-blue-600"
+              className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             />
             <span className="text-xs leading-relaxed text-slate-700">
               Publish anonymously
@@ -204,17 +246,18 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   readOnly
+                  aria-label="Public link to your card"
                   value={cardUrl(pointer.slug)}
                   onFocus={(event) => event.target.select()}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[11px] text-slate-700"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[11px] text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 />
                 <button
                   type="button"
                   onClick={copyLink}
-                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-fg transition-colors cursor-pointer hover:bg-accent-strong"
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-fg transition-colors cursor-pointer hover:bg-accent-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? 'Copied' : 'Copy link'}
+                  <span aria-live="polite">{copied ? 'Copied' : 'Copy link'}</span>
                 </button>
               </div>
 
@@ -233,7 +276,7 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
                       })
                     )
                   }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   {busy === 'publish' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -259,7 +302,7 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
                     )
                   }
                   title="Mints a new link and retires the old one"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   {busy === 'rotate' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -272,16 +315,34 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
                 <button
                   type="button"
                   disabled={busy !== null}
-                  onClick={() => run('remove', () => unpublishCard(pointer.slug))}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-surface px-3 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-60"
+                  onClick={() =>
+                    confirmRemove
+                      ? run('remove', () => unpublishCard(pointer.slug))
+                      : setConfirmRemove(true)
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    confirmRemove
+                      ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 focus-visible:ring-rose-500'
+                      : 'border-slate-200 bg-surface text-slate-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus-visible:ring-accent'
+                  }`}
                 >
                   {busy === 'remove' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Trash2 className="h-3.5 w-3.5" />
                   )}
-                  Unpublish
+                  {confirmRemove ? 'Take the card down?' : 'Unpublish'}
                 </button>
+
+                {confirmRemove && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRemove(false)}
+                    className="inline-flex items-center rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition-colors cursor-pointer hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                  >
+                    Keep it up
+                  </button>
+                )}
               </div>
 
               <p className="text-[11px] leading-relaxed text-slate-500">
@@ -304,7 +365,7 @@ export const CardPanel: React.FC<{ user: UserProfile; entries: JournalEntry[] }>
                   })
                 )
               }
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-xs font-semibold text-accent-fg shadow-xs transition-colors cursor-pointer hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-xs font-semibold text-accent-fg shadow-xs transition-colors cursor-pointer hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {busy === 'publish' ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

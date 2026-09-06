@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import { fetchPublicCard } from '../lib/card.ts';
 import type { JournalCard as CardData } from '../lib/cardTypes.ts';
-import { titleReason } from '../lib/cardTypes.ts';
+import { RARITIES, titleReason } from '../lib/cardTypes.ts';
 import { JournalCard } from './JournalCard.tsx';
 import { ThemeToggle } from './ThemeToggle.tsx';
 import type { Theme } from '../lib/theme.ts';
@@ -55,9 +55,15 @@ export const PublicCardPage: React.FC<{
 
       <main className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6">
         {state === 'loading' && (
-          <div className="flex flex-col items-center gap-3 text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <p className="text-xs font-semibold">Loading card…</p>
+          <div className="flex flex-col items-center gap-6">
+            <div
+              className="aspect-[5/7] w-[min(320px,100%)] animate-pulse rounded-[20px] bg-slate-200"
+              aria-hidden
+            />
+            <p className="flex items-center gap-2 text-xs font-semibold text-slate-500" role="status">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading card…
+            </p>
           </div>
         )}
 
@@ -81,10 +87,33 @@ export const PublicCardPage: React.FC<{
         )}
 
         {state === 'ready' && card && (
-          <div className="flex flex-col items-center gap-8">
-            <JournalCard card={card} />
+          <div
+            className="relative flex flex-col items-center gap-8"
+            style={
+              {
+                '--stage-h': RARITIES[card.rarity]?.hues[0] ?? 214,
+                '--stage-s': `${RARITIES[card.rarity]?.sat ?? 18}%`,
+              } as React.CSSProperties
+            }
+          >
+            {/* The stage takes its colour from the card's own rarity, so a
+                legendary link does not arrive on the same flat grey as a common
+                one. Explicitly stacked under the card rather than trusting
+                paint order. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-20 left-1/2 z-0 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full opacity-60 blur-3xl"
+              style={{
+                background:
+                  'radial-gradient(circle, hsl(var(--stage-h) var(--stage-s) 62%), transparent 70%)',
+              }}
+            />
 
-            <div className="max-w-sm text-center">
+            <div className="relative z-10 w-[min(320px,100%)]">
+              <JournalCard card={card} headingLevel={1} className="jm-card--reveal" />
+            </div>
+
+            <div className="relative z-10 max-w-sm text-center">
               <p className="text-sm leading-relaxed text-slate-600">
                 <strong className="font-semibold text-slate-900">
                   {card.displayName || 'An anonymous journaler'}

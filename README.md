@@ -4,6 +4,9 @@ A private, user-authenticated journal. You write; Gemini reflects back; entries 
 a map; and a cheap second model pass turns what you wrote into charts and monthly retrospectives.
 Everything is stored per-user in Cloud Firestore behind owner-bound rules.
 
+📖 **Full documentation: <https://nitinsh06.github.io/google_apac_hackathon/>** — built with MkDocs
+from [`docs/`](./docs), published by [`.github/workflows/docs.yml`](./.github/workflows/docs.yml).
+
 ---
 
 ## 1. Google services in this app
@@ -160,12 +163,17 @@ by shape.
 
 ```bash
 firebase login
-firebase use --add            # select your project
 firebase deploy --only firestore:rules
 
 npm install
 npm run dev                   # http://localhost:3000
 ```
+
+This project uses a **named** Firestore database, not `(default)`. `firebase.json` pins both the
+project and that database id, so the deploy above targets the right one — deploying without it
+writes the rules to `(default)`, where nothing reads them, and every write fails closed with
+*Missing or insufficient permissions*. Redeploy whenever `firestore.rules` changes: a feature whose
+rules are still local is a feature that fails in the browser.
 
 Sign in with Google. If the popup closes immediately, `localhost` is missing from Authorized
 domains (§2.2 step 3).
@@ -209,8 +217,10 @@ deliberate and easy to get wrong:
 - **Analytics documents are shape-checked**, not just owner-checked. They are written straight from
   the browser, so the rule pins the field set, the enum values, and the array lengths rather than
   trusting the client.
-- **`publicCards` is readable by anyone**, and its field allowlist is the privacy guarantee rather
-  than a formality — it is what stops a modified client ever placing an entry title, an excerpt, a
+- **`publicCards` grants `get`, not `read`.** `read` also grants `list`, which would let anyone
+  enumerate every published card and make the unguessable slug pointless — the link *is* the access
+  control, so the rule permits fetching a known slug and denies listing the collection. Its field
+  allowlist is the second half of the privacy guarantee rather than a formality — it is what stops a modified client ever placing an entry title, an excerpt, a
   place name or a coordinate into a world-readable document. Both copies of `ownerId` are pinned on
   update, so one user cannot overwrite another's slug and an owner cannot reassign their own card.
   **Adding a field to that allowlist is a decision that it is safe to publish.**
