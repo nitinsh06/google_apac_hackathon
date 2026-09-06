@@ -33,6 +33,38 @@ const summaryDoc = (userId: string, month: string) =>
 
 /** Long enough that a writing session produces one analysis, not thirty. */
 const EXTRACT_DEBOUNCE_MS = 45_000;
+
+/**
+ * Who owns extraction.
+ *
+ * Deployed on Google Cloud, an Eventarc trigger calls the server the moment a
+ * reflection is written, so the browser must not also queue one — that would
+ * analyse and bill every entry twice. Running locally, or before the trigger is
+ * created, the browser keeps doing it so the feature still works.
+ *
+ * Unknown until the first probe answers, and the probe is only made once.
+ */
+let workerOwnsExtraction: boolean | null = null;
+let workerProbe: Promise<boolean> | null = null;
+
+function serverHasWorker(): Promise<boolean> {
+  if (workerOwnsExtraction !== null) return Promise.resolve(workerOwnsExtraction);
+  if (workerProbe) return workerProbe;
+
+  workerProbe = fetch('/api/analytics/schema')
+    .then((response) => (response.ok ? response.json() : null))
+    .then((payload: { workerEnabled?: boolean } | null) => {
+      workerOwnsExtraction = payload?.workerEnabled === true;
+      return workerOwnsExtraction;
+    })
+    .catch(() => {
+      // Server unreachable: assume no worker and keep the local path alive.
+      workerOwnsExtraction = false;
+      return false;
+    });
+
+  return workerProbe;
+}
 /** Below this there is nothing to read, and the call would be wasted spend. */
 const MIN_TEXT_LENGTH = 40;
 
@@ -241,12 +273,21 @@ export function queueEntryExtraction(entry: JournalEntry): void {
     entry.id,
     setTimeout(() => {
       pending.delete(entry.id);
-      if (needsExtraction(entry)) void runExtraction(entry);
+      void serverHasWorker().then((hasWorker) => {
+        // The worker is already handling this write; the reading will arrive
+        // over the live subscription.
+        if (hasWorker) return;
+        if (needsExtraction(entry)) void runExtraction(entry);
+      });
     }, EXTRACT_DEBOUNCE_MS)
   );
 }
 
-/** Analyses anything the debounce never covered — old entries, missed writes. */
+/**
+ * Analyses anything no event will ever fire for: entries written before the
+ * trigger existed, or while the worker was down. Runs against the request-
+ * scoped endpoint regardless of whether the worker is live.
+ */
 export async function backfillInsights(
   entries: JournalEntry[],
   onProgress?: (done: number, total: number) => void

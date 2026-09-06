@@ -8,6 +8,12 @@ import { verifyFirebaseIdToken } from './src/server/firebaseAuth.ts';
 import { readIntegrationPreferences } from './src/server/firestoreRest.ts';
 import { assertPublicHost } from './src/server/netGuard.ts';
 import { extractEntryInsight, summariseMonth } from './src/server/analyticsExtract.ts';
+import { verifyGoogleIdToken } from './src/server/googleAuth.ts';
+import {
+  adminGetDocument,
+  adminListCollection,
+  adminWriteDocument,
+} from './src/server/firestoreAdmin.ts';
 import type { ExtractionSource, GenerateJson } from './src/server/analyticsExtract.ts';
 import {
   ANALYTICS_SCHEMA_VERSION,
@@ -386,8 +392,214 @@ app.post('/api/analytics/monthly', async (req, res) => {
   }
 });
 
+// ─── Analytics background worker ───────────────────────────────────────────
+//
+// Eventarc delivers a Firestore write on users/{uid}/reflections/{entryId} to
+// this route. The extraction that the browser used to debounce now happens
+// server-side, so an entry is analysed whether or not the tab that wrote it is
+// still open.
+//
+// The CloudEvent payload for Firestore is protobuf-encoded, which would need a
+// proto runtime to read. It is not needed: the document path arrives in the
+// `ce-subject` header as plain text, and the worker re-reads the document from
+// Firestore anyway — the authoritative copy, not whatever the event carried.
+
+const WORKER_ENABLED = process.env.ANALYTICS_WORKER_ENABLED === 'true';
+const EVENTARC_SERVICE_ACCOUNT = process.env.EVENTARC_SERVICE_ACCOUNT ?? '';
+const EVENTARC_AUDIENCE = process.env.EVENTARC_AUDIENCE ?? '';
+
+const firestoreTarget = {
+  projectId: firebaseConfig.projectId,
+  databaseId: firebaseConfig.firestoreDatabaseId,
+};
+
+/** `documents/users/{uid}/reflections/{entryId}` → its two ids. */
+function parseReflectionSubject(subject: string): { uid: string; entryId: string } | null {
+  const match = /^documents\/users\/([^/]+)\/reflections\/([^/]+)$/.exec(subject.trim());
+  if (!match) return null;
+
+  const [, uid, entryId] = match;
+  // Path segments come from the event, so refuse anything that could traverse.
+  if (!uid || !entryId || uid.includes('..') || entryId.includes('..')) return null;
+  return { uid, entryId };
+}
+
+/** The writer's own words. Model replies are not evidence about the writer. */
+function writerTextFrom(turns: unknown): { text: string; count: number } {
+  if (!Array.isArray(turns)) return { text: '', count: 0 };
+
+  const parts: string[] = [];
+  for (const turn of turns) {
+    if (!turn || typeof turn !== 'object') continue;
+    const record = turn as Record<string, unknown>;
+    if (record.role !== 'user') continue;
+    if (typeof record.text === 'string' && record.text.trim()) parts.push(record.text.trim());
+  }
+  return { text: parts.join('\n\n'), count: Array.isArray(turns) ? turns.length : 0 };
+}
+
+/**
+ * Closes out any finished month for this user that has readings but no summary.
+ * Event-driven rather than scheduled: the first entry written in a new month is
+ * exactly the moment the previous one became complete.
+ */
+async function rollUpFinishedMonths(uid: string): Promise<string[]> {
+  const [rawInsights, rawSummaries] = await Promise.all([
+    adminListCollection(firestoreTarget, `users/${uid}/insights`),
+    adminListCollection(firestoreTarget, `users/${uid}/monthlySummaries`),
+  ]);
+
+  const insights = rawInsights
+    .map(toStoredInsight)
+    .filter((insight): insight is EntryInsight => insight !== null);
+  if (insights.length === 0) return [];
+
+  const written = new Set(
+    rawSummaries.map((summary) => clampText(summary.month, 7)).filter(Boolean)
+  );
+
+  const now = new Date();
+  const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+
+  const months = [...new Set(insights.map((insight) => monthKey(insight.entryCreatedAt)))]
+    .filter((month) => month !== 'unknown' && month < currentMonth && !written.has(month))
+    .sort()
+    // Only the most recent few, so a long-dormant account does not fan out into
+    // a dozen model calls on one delivery.
+    .slice(-2);
+
+  const done: string[] = [];
+  for (const month of months) {
+    const forMonth = insights.filter((insight) => monthKey(insight.entryCreatedAt) === month);
+    if (forMonth.length === 0) continue;
+
+    const summary = await summariseMonth({ month, insights: forMonth }, generateAnalyticsJson);
+    await adminWriteDocument(
+      firestoreTarget,
+      `users/${uid}/monthlySummaries/${month}`,
+      summary as unknown as Record<string, unknown>
+    );
+    done.push(month);
+  }
+  return done;
+}
+
+/** Re-validates a stored reading read back through the admin path. */
+function toStoredInsight(raw: Record<string, unknown>): EntryInsight | null {
+  const entryId = clampText(raw.entryId, 200);
+  const entryCreatedAt = clampText(raw.entryCreatedAt, 40);
+  if (!entryId || !entryCreatedAt) return null;
+  return { ...(raw as unknown as EntryInsight), entryId, entryCreatedAt };
+}
+
+app.post('/api/tasks/reflection-written', async (req, res) => {
+  if (!WORKER_ENABLED) {
+    return res.status(404).json({ error: 'Analytics worker is not enabled.' });
+  }
+  if (!EVENTARC_SERVICE_ACCOUNT || !EVENTARC_AUDIENCE) {
+    console.error('Analytics worker is enabled but EVENTARC_SERVICE_ACCOUNT/AUDIENCE are unset.');
+    return res.status(500).json({ error: 'Worker is misconfigured.' });
+  }
+
+  // This route is publicly routable because the service is, so the OIDC token
+  // Eventarc attaches is the only thing separating it from the open internet.
+  const header = req.get('authorization') ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) return res.status(401).json({ error: 'Missing identity token.' });
+
+  try {
+    await verifyGoogleIdToken(token, {
+      audience: EVENTARC_AUDIENCE,
+      serviceAccount: EVENTARC_SERVICE_ACCOUNT,
+    });
+  } catch (error: any) {
+    console.warn('Rejected analytics worker delivery:', error?.message || error);
+    return res.status(401).json({ error: 'Could not verify the delivery.' });
+  }
+
+  const subject = req.get('ce-subject') ?? '';
+  const target = parseReflectionSubject(subject);
+  if (!target) {
+    // Ack rather than fail: retrying an event we will never understand just
+    // burns the retry budget.
+    console.warn('Analytics worker ignored an unexpected subject:', subject.slice(0, 120));
+    return res.status(204).end();
+  }
+
+  const { uid, entryId } = target;
+
+  try {
+    const entry = await adminGetDocument(
+      firestoreTarget,
+      `users/${uid}/reflections/${entryId}`
+    );
+
+    if (!entry) {
+      // Deleted between the write and this delivery: drop the reading with it.
+      await adminWriteDocument(firestoreTarget, `users/${uid}/insights/${entryId}`, {
+        deletedAt: new Date().toISOString(),
+      }).catch(() => {});
+      return res.status(204).end();
+    }
+
+    const { text, count } = writerTextFrom(entry.turns);
+    if (text.length < 40) return res.status(204).end();
+
+    const updatedAt = clampText(entry.updatedAt, 40);
+    const existing = await adminGetDocument(
+      firestoreTarget,
+      `users/${uid}/insights/${entryId}`
+    );
+
+    // Firestore fires on every persisted turn; only re-read what has moved on.
+    if (
+      existing &&
+      clampNumber(existing.schemaVersion, 0, 99, 0) === ANALYTICS_SCHEMA_VERSION &&
+      clampText(existing.extractedAt, 40) >= updatedAt
+    ) {
+      return res.status(204).end();
+    }
+
+    const insight = await extractEntryInsight(
+      {
+        id: entryId,
+        title: clampText(entry.title, 120),
+        category: clampText(entry.category, 40),
+        createdAt: clampText(entry.createdAt, 40) || new Date().toISOString(),
+        text,
+        turnCount: count,
+      },
+      generateAnalyticsJson
+    );
+
+    await adminWriteDocument(
+      firestoreTarget,
+      `users/${uid}/insights/${entryId}`,
+      insight as unknown as Record<string, unknown>
+    );
+
+    const rolled = await rollUpFinishedMonths(uid).catch((error) => {
+      console.error('Monthly rollup failed:', error?.message || error);
+      return [] as string[];
+    });
+
+    return res.status(200).json({ ok: true, entryId, months: rolled });
+  } catch (error: any) {
+    // A 5xx tells Eventarc to retry with backoff, which is what we want for a
+    // transient Firestore or model failure.
+    console.error('Analytics worker failed:', error?.message || error);
+    return res.status(500).json({ error: 'Extraction failed.' });
+  }
+});
+
 app.get('/api/analytics/schema', (_req, res) => {
-  res.json({ schemaVersion: ANALYTICS_SCHEMA_VERSION, models: EXTRACTION_MODELS });
+  res.json({
+    schemaVersion: ANALYTICS_SCHEMA_VERSION,
+    models: EXTRACTION_MODELS,
+    // When the worker is live the browser must not also debounce an extraction,
+    // or every entry is analysed twice and billed twice.
+    workerEnabled: WORKER_ENABLED,
+  });
 });
 
 // ─── Webhook dispatch ──────────────────────────────────────────────────────
